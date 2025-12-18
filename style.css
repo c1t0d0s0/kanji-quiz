@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
+:root {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --main-color: #4a4a4a;
+    --accent-color: #00aaff;
+    --correct-color: #4caf50;
+    --incorrect-color: #f44336;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 1rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent-color);
+}
+
+h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+p {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+}
+
+.screen {
+    display: none;
+    width: 100%;
+    max-width: 800px;
+    padding: 2rem;
+    background-color: var(--main-color);
+    border-radius: 15px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.screen.active {
+    display: block;
+}
+
+.mode-selection {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.mode {
+    background-color: rgba(0,0,0,0.2);
+    padding: 2rem;
+    border-radius: 10px;
+    flex: 1;
+    min-width: 250px;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.mode:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 170, 255, 0.2);
+}
+
+.start-btn, #retry-btn {
+    background-color: var(--accent-color);
+    color: #ffffff;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    font-weight: bold;
+}
+
+.start-btn:hover, #retry-btn:hover {
+    background-color: #0088cc;
+    transform: scale(1.05);
+}
+
+#quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+#timer {
+    background-color: var(--accent-color);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+}
+
+#question-area {
+    margin-bottom: 2rem;
+}
+
+#question {
+    font-size: 5rem;
+    font-weight: bold;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.option {
+    background-color: rgba(255,255,255,0.1);
+    border: 2px solid transparent;
+    color: var(--text-color);
+    padding: 1.5rem;
+    font-size: 1.8rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+@media (hover: hover) {
+    .option:hover:not(:disabled) {
+        background-color: rgba(0, 170, 255, 0.2);
+        border-color: var(--accent-color);
+    }
+}
+
+.option.correct {
+    background-color: var(--correct-color);
+    border-color: var(--correct-color);
+    color: white;
+}
+
+.option.incorrect {
+    background-color: var(--incorrect-color);
+    border-color: var(--incorrect-color);
+    color: white;
+}
+
+.option:disabled {
+    cursor: not-allowed;
+}
+
+#feedback-area {
+    margin-top: 1.5rem;
+    height: 2rem;
+}
+
+#feedback {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+#feedback.correct {
+    color: var(--correct-color);
+}
+
+#feedback.incorrect {
+    color: var(--incorrect-color);
+}
+
+
+#result-screen h1 {
+    margin-bottom: 2rem;
+}
+
+#score {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+#message {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 0.5rem;
+    }
+    .screen {
+        padding: 1rem;
+    }
+    h1 {
+        font-size: 2rem;
+    }
+    #question {
+        font-size: 4rem;
+    }
+    .option {
+        font-size: 1.5rem;
+        padding: 1rem;
+    }
+    .options {
+        grid-template-columns: 1fr;
+    }
+}
