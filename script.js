@@ -164,7 +164,10 @@ function startQuiz(mode) {
     
     // Total questions capped by available pool size
     const questionLimit = Math.min(selectedQuestionCount, shuffledPool.length);
-    currentQuiz = shuffledPool.slice(0, questionLimit);
+    currentQuiz = shuffledPool.slice(0, questionLimit).map(item => {
+        const targetReading = item.readings[Math.floor(Math.random() * item.readings.length)];
+        return { ...item, targetReading };
+    });
 
     startScreen.classList.remove('active');
     resultScreen.classList.remove('active');
@@ -193,15 +196,15 @@ function displayQuestion() {
     let questionText, correctAnswer;
     if (quizMode === 'k-to-y') {
         questionText = currentKanji.kanji;
-        correctAnswer = currentKanji.reading;
+        correctAnswer = currentKanji.targetReading;
     } else {
-        questionText = currentKanji.reading;
+        questionText = currentKanji.targetReading;
         correctAnswer = currentKanji.kanji;
     }
 
     questionEl.textContent = questionText;
 
-    const options = generateOptions(correctAnswer);
+    const options = generateOptions(currentKanji, correctAnswer);
     optionButtons.forEach((button, index) => {
         button.textContent = options[index];
         button.onclick = () => checkAnswer(button.textContent, correctAnswer);
@@ -210,15 +213,33 @@ function displayQuestion() {
     startTimer();
 }
 
-function generateOptions(correctAnswer) {
+function generateOptions(currentKanji, correctAnswer) {
     const options = [correctAnswer];
-    const isReading = quizMode === 'k-to-y';
-    const pool = kanjiDatabase.map(item => isReading ? item.reading : item.kanji);
+    const isReadingMode = quizMode === 'k-to-y';
 
-    while (options.length < 4) {
-        const randomOption = pool[Math.floor(Math.random() * pool.length)];
-        if (!options.includes(randomOption)) {
-            options.push(randomOption);
+    if (isReadingMode) {
+        const currentReadings = currentKanji.readings;
+        const pool = kanjiDatabase
+            .flatMap(item => item.readings)
+            .filter(r => !currentReadings.includes(r));
+
+        while (options.length < 4 && pool.length > 0) {
+            const randomOption = pool[Math.floor(Math.random() * pool.length)];
+            if (!options.includes(randomOption)) {
+                options.push(randomOption);
+            }
+        }
+    } else {
+        const targetReading = currentKanji.targetReading;
+        const pool = kanjiDatabase
+            .filter(item => !item.readings.includes(targetReading))
+            .map(item => item.kanji);
+
+        while (options.length < 4 && pool.length > 0) {
+            const randomOption = pool[Math.floor(Math.random() * pool.length)];
+            if (!options.includes(randomOption)) {
+                options.push(randomOption);
+            }
         }
     }
     return shuffleArray(options);
@@ -284,7 +305,7 @@ function handleTimeout() {
     optionButtons.forEach(button => button.disabled = true);
     feedbackEl.textContent = '時間切れ！';
     feedbackEl.classList.add('incorrect');
-    const correctAnswer = (quizMode === 'k-to-y') ? currentQuiz[currentQuestionIndex].reading : currentQuiz[currentQuestionIndex].kanji;
+    const correctAnswer = (quizMode === 'k-to-y') ? currentQuiz[currentQuestionIndex].targetReading : currentQuiz[currentQuestionIndex].kanji;
     highlightAnswer(null, false, correctAnswer);
     playSound(false);
 
@@ -346,7 +367,7 @@ function endQuiz() {
 
 // --- Global Handlers ---
 startKtoYBtn.addEventListener('click', () => startQuiz('k-to-y'));
-startYtoKBtn.addEventListener('click', () => startQuiz('start-y-to-k' === 'start-y-to-k' ? 'y-to-k' : 'y-to-k'));
+startYtoKBtn.addEventListener('click', () => startQuiz('y-to-k'));
 retryBtn.addEventListener('click', () => {
     resultScreen.classList.remove('active');
     startScreen.classList.add('active');
