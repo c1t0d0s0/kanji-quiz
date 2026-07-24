@@ -311,13 +311,27 @@ h1 {
     border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
 
-.option:hover:not(:disabled) {
-    background: rgba(56, 189, 248, 0.15);
+@media (hover: hover) {
+    .option:hover:not(:disabled) {
+        background: rgba(56, 189, 248, 0.15);
+        border-color: var(--accent-glow);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+}
+
+.option:active:not(:disabled) {
+    transform: scale(0.97);
+    background: rgba(56, 189, 248, 0.2);
+}
+
+.option:focus-visible {
     border-color: var(--accent-glow);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4);
 }
 
 .option.correct {

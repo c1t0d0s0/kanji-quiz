@@ -275,12 +275,23 @@ function resetQuestionState() {
         button.disabled = false;
         button.className = 'option';
         button.onclick = null;
+        button.blur();
     });
+
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
 }
 
 function checkAnswer(selectedAnswer, correctAnswer) {
     clearInterval(timerInterval);
-    optionButtons.forEach(button => button.disabled = true);
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    optionButtons.forEach(button => {
+        button.disabled = true;
+        button.blur();
+    });
 
     if (selectedAnswer === correctAnswer) {
         score++;
@@ -302,7 +313,13 @@ function checkAnswer(selectedAnswer, correctAnswer) {
 }
 
 function handleTimeout() {
-    optionButtons.forEach(button => button.disabled = true);
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    optionButtons.forEach(button => {
+        button.disabled = true;
+        button.blur();
+    });
     feedbackEl.textContent = '時間切れ！';
     feedbackEl.classList.add('incorrect');
     const correctAnswer = (quizMode === 'k-to-y') ? currentQuiz[currentQuestionIndex].targetReading : currentQuiz[currentQuestionIndex].kanji;
