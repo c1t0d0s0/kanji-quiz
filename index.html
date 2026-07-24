@@ -3,62 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>漢字クイズ</title>
+    <title>漢字クイズ - 小学校1〜6年生</title>
     <link rel="stylesheet" href="style.css">
-    <script src="config.js"></script>
+    <script src="config.js" onerror="this.onerror=null;"></script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-S6QX2XHT2D"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', config.gtagId);
+      if (window.config && window.config.gtagId) {
+        gtag('js', new Date());
+        gtag('config', config.gtagId);
+      }
     </script>
 </head>
 <body>
     <div id="start-screen" class="screen active">
-        <h1>漢字クイズ</h1>
-        <p>小学校1・2年生レベル</p>
-        <div class="mode-selection">
-            <div class="mode">
+        <header class="app-header">
+            <span class="app-badge">小学校全学年対応</span>
+            <h1>漢字クイズ</h1>
+            <p class="subtitle">楽しく学べる漢字学習アプリ</p>
+        </header>
+
+        <!-- Grade Selector -->
+        <section class="selection-section">
+            <h3>学年をえらぼう</h3>
+            <div class="grade-selector" id="grade-selector">
+                <button class="grade-pill active" data-grade="all">全学年</button>
+                <button class="grade-pill" data-grade="1">1年生</button>
+                <button class="grade-pill" data-grade="2">2年生</button>
+                <button class="grade-pill" data-grade="3">3年生</button>
+                <button class="grade-pill" data-grade="4">4年生</button>
+                <button class="grade-pill" data-grade="5">5年生</button>
+                <button class="grade-pill" data-grade="6">6年生</button>
+            </div>
+        </section>
+
+        <!-- Question Count Selector -->
+        <section class="selection-section">
+            <h3>出題数をえらぼう</h3>
+            <div class="count-selector" id="count-selector">
+                <button class="count-pill" data-count="5">5問</button>
+                <button class="count-pill active" data-count="10">10問</button>
+                <button class="count-pill" data-count="20">20問</button>
+            </div>
+        </section>
+
+        <!-- Mode Selection -->
+        <section class="mode-selection">
+            <div class="mode-card">
                 <h2>漢字から読み</h2>
-                <p>表示された漢字の読みを当てよう！</p>
+                <p>表示された漢字の「読み」を答えよう！</p>
                 <button id="start-k-to-y" class="start-btn">スタート</button>
             </div>
-            <div class="mode">
+            <div class="mode-card">
                 <h2>読みから漢字</h2>
-                <p>表示された読みの漢字を当てよう！</p>
+                <p>表示された読みの「漢字」を答えよう！</p>
                 <button id="start-y-to-k" class="start-btn">スタート</button>
             </div>
-        </div>
+        </section>
     </div>
 
     <div id="quiz-screen" class="screen">
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+
         <div id="quiz-header">
-            <p id="question-counter">第1問</p>
+            <div class="header-left">
+                <span id="question-counter">第1問</span>
+                <span id="grade-badge" class="badge">1年生</span>
+            </div>
             <div id="timer">10</div>
         </div>
+
         <div id="question-area">
             <p id="question"></p>
         </div>
+
         <div id="options-area" class="options">
             <button class="option"></button>
             <button class="option"></button>
             <button class="option"></button>
             <button class="option"></button>
         </div>
+
         <div id="feedback-area">
             <p id="feedback"></p>
         </div>
     </div>
 
     <div id="result-screen" class="screen">
-        <h1>結果発表</h1>
-        <p id="score">正解率: 100%</p>
-        <p id="message">おめでとう！パーフェクト！</p>
-        <button id="retry-btn">もう一度挑戦する</button>
+        <div class="result-card">
+            <h1>結果発表</h1>
+            <div id="rank-badge" class="rank-badge">RANK S</div>
+            <p id="score">正解率: 100%</p>
+            <p id="detail-score">10問中 10問正解</p>
+            <p id="message">おめでとう！パーフェクト！</p>
+            <button id="retry-btn">もう一度挑戦する</button>
+        </div>
     </div>
 
+    <script src="kanji-data.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
