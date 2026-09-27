@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Noto+Sans+JP:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Noto+Sans+JP:wght@400;600;700;900&family=Outfit:wght@500;700;800&display=swap');
 
 :root {
     --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
@@ -15,6 +15,8 @@
     
     --pill-bg: rgba(255, 255, 255, 0.06);
     --pill-active: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+
+    --font-kyokasho: "UD デジタル 教科書体 NP", "UD Digi Kyokasho NP", "UD デジタル 教科書体 NK", "UD Digi Kyokasho NK", "UD デジタル 教科書体 N", "UD Digi Kyokasho N", "UD デジタル 教科書体 NP-R", "UD Digi Kyokasho NP-R", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R", "UD デジタル 教科書体 N-R", "UD Digi Kyokasho N-R", "游教科書体 横用", "YuKyokasho Yoko", "游教科書体", "YuKyokasho", "Toppan Bunkyu Kyokasho", "凸版文久教科書体", "Klee One", sans-serif;
 }
 
 * {
@@ -286,11 +288,12 @@ h1 {
 }
 
 #question {
+    font-family: var(--font-kyokasho);
     font-size: 5.5rem;
-    font-weight: 900;
+    font-weight: 600;
     color: #ffffff;
     line-height: 1.2;
-    letter-spacing: -0.03em;
+    letter-spacing: 0.02em;
     text-align: center;
     width: 100%;
 }
@@ -302,12 +305,14 @@ h1 {
 }
 
 .option {
+    font-family: var(--font-kyokasho);
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid var(--card-border);
     color: var(--text-primary);
     padding: 1.4rem;
     font-size: 1.8rem;
-    font-weight: 700;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
