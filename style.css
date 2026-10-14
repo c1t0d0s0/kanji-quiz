@@ -193,12 +193,63 @@ button {
 .hero {
     display: flex;
     align-items: center;
-    gap: clamp(0.75rem, 4vw, 1.25rem);
+    gap: clamp(0.6rem, 3vw, 1.25rem);
 }
 
 .hero-text {
     flex: 1;
     min-width: 0;
+}
+
+.lynx {
+    flex: none;
+    width: clamp(3.25rem, 16vw, 6.5rem);
+}
+
+.lynx svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.lynx-fur {
+    fill: #e9bd72;
+}
+
+.lynx-light {
+    fill: #fff6e1;
+}
+
+/* Eyes and outlines stay dark on dark screens too, so they are not tied to the text colour */
+.lynx-tuft {
+    fill: #1c2a4a;
+}
+
+.lynx-pink {
+    fill: #f7b3a6;
+}
+
+.lynx-nose {
+    fill: #e0705f;
+}
+
+.lynx-tongue {
+    fill: #f28f86;
+}
+
+@media (prefers-color-scheme: dark) {
+    .lynx-fur {
+        fill: #c9984a;
+    }
+
+    /* brown ear tufts, so they do not melt into the dark background */
+    .lynx-tuft {
+        fill: #8f6330;
+    }
+
+    .lynx-light {
+        fill: #f3e6c8;
+    }
 }
 
 .crest {
