@@ -2,82 +2,137 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#eef3ee" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#14211c" media="(prefers-color-scheme: dark)">
     <title>漢字クイズ - 小学校1〜6年生</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Noto+Sans+JP:wght@400;600;700;900&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="config.js" onerror="this.onerror=null;"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-S6QX2XHT2D"></script>
+    <!-- config.js (not tracked by Git, see config.example.js) defines GTM_ID and FIREBASE_* -->
+    <script src="config.js"></script>
+    <!-- Google tag: embedded only when GTM_ID is set. GTM-… = Tag Manager, G-… = Analytics (gtag.js) -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      if (window.config && window.config.gtagId) {
-        gtag('js', new Date());
-        gtag('config', config.gtagId);
-      }
+      (function () {
+        var id = typeof GTM_ID === 'string' ? GTM_ID.trim() : '';
+        if (!id) return;
+        if (!/^(GTM|G)-[A-Z0-9]+$/.test(id)) {
+          console.error('config.js: GTM_ID must look like GTM-XXXXXXX or G-XXXXXXXXXX');
+          return;
+        }
+        window.dataLayer = window.dataLayer || [];
+        var script = document.createElement('script');
+        script.async = true;
+        if (id.indexOf('GTM-') === 0) {
+          window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+          script.src = 'https://www.googletagmanager.com/gtm.js?id=' + id;
+        } else {
+          window.gtag = function () { dataLayer.push(arguments); };
+          gtag('js', new Date());
+          gtag('config', id);
+          script.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+        }
+        document.head.appendChild(script);
+      })();
     </script>
 </head>
 <body>
-    <div id="start-screen" class="screen active">
-        <header class="app-header">
-            <span class="app-badge">小学校全学年対応</span>
-            <h1>漢字クイズ</h1>
-            <p class="subtitle">楽しく学べる漢字学習アプリ</p>
-        </header>
+    <main id="start-screen" class="screen home active">
+        <div class="home-main">
+            <header class="hero">
+                <!-- A four-choice question: which one reads "もり"? -->
+                <div class="crest" aria-hidden="true">
+                    <span class="crest-cell">木</span>
+                    <span class="crest-cell">林</span>
+                    <span class="crest-cell crest-cross">森</span>
+                    <span class="crest-cell">本</span>
+                </div>
+                <div class="hero-text">
+                    <h1 class="brand">漢字クイズ</h1>
+                    <p class="lead">小学校 1〜6年生の 漢字を、4たくの クイズで おぼえよう。</p>
+                </div>
+            </header>
 
-        <!-- Grade Selector -->
-        <section class="selection-section">
-            <h3>学年をえらぼう</h3>
-            <div class="grade-selector" id="grade-selector">
-                <button class="grade-pill active" data-grade="all">全学年</button>
-                <button class="grade-pill" data-grade="1">1年生</button>
-                <button class="grade-pill" data-grade="2">2年生</button>
-                <button class="grade-pill" data-grade="3">3年生</button>
-                <button class="grade-pill" data-grade="4">4年生</button>
-                <button class="grade-pill" data-grade="5">5年生</button>
-                <button class="grade-pill" data-grade="6">6年生</button>
-            </div>
-        </section>
+            <p id="practice-days" class="points" hidden>
+                <span class="points-label">れんしゅうした 日</span>
+                <b id="practice-days-num" class="points-num"></b>
+            </p>
 
-        <!-- Question Count Selector -->
-        <section class="selection-section">
-            <h3>出題数をえらぼう</h3>
-            <div class="count-selector" id="count-selector">
-                <button class="count-pill" data-count="5">5問</button>
-                <button class="count-pill active" data-count="10">10問</button>
-                <button class="count-pill" data-count="20">20問</button>
-            </div>
-        </section>
+            <!-- Grade Selector -->
+            <section class="selection-section" aria-labelledby="grade-title">
+                <h2 id="grade-title">学年をえらぼう</h2>
+                <div class="seg grade-selector" id="grade-selector" role="group" aria-labelledby="grade-title">
+                    <button type="button" class="seg-option grade-pill" data-grade="all" aria-pressed="true">全学年</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="1" aria-pressed="false">1年生</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="2" aria-pressed="false">2年生</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="3" aria-pressed="false">3年生</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="4" aria-pressed="false">4年生</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="5" aria-pressed="false">5年生</button>
+                    <button type="button" class="seg-option grade-pill" data-grade="6" aria-pressed="false">6年生</button>
+                </div>
+            </section>
 
-        <!-- Mode Selection -->
-        <section class="mode-selection">
-            <div class="mode-card">
-                <h2>漢字から読み</h2>
-                <p>表示された漢字の「読み」を答えよう！</p>
-                <button id="start-k-to-y" class="start-btn">スタート</button>
-            </div>
-            <div class="mode-card">
-                <h2>読みから漢字</h2>
-                <p>表示された読みの「漢字」を答えよう！</p>
-                <button id="start-y-to-k" class="start-btn">スタート</button>
-            </div>
-        </section>
-    </div>
+            <!-- Question Count Selector -->
+            <section class="selection-section" aria-labelledby="count-title">
+                <h2 id="count-title">出題数をえらぼう</h2>
+                <div class="seg count-selector" id="count-selector" role="group" aria-labelledby="count-title">
+                    <button type="button" class="seg-option count-pill" data-count="5" aria-pressed="false">5問</button>
+                    <button type="button" class="seg-option count-pill" data-count="10" aria-pressed="true">10問</button>
+                    <button type="button" class="seg-option count-pill" data-count="20" aria-pressed="false">20問</button>
+                </div>
+            </section>
 
-    <div id="quiz-screen" class="screen">
-        <div class="progress-container">
-            <div id="progress-bar"></div>
+            <!-- Mode Selection -->
+            <section class="mode-selection" aria-label="クイズのしゅるい">
+                <div class="mode-card">
+                    <div class="mode-text">
+                        <h2>漢字から読み</h2>
+                        <p>表示された漢字の「読み」を答えよう！</p>
+                        <p id="best-k-to-y" class="best" hidden></p>
+                    </div>
+                    <button type="button" id="start-k-to-y" class="btn btn-primary start-btn">スタート</button>
+                </div>
+                <div class="mode-card">
+                    <div class="mode-text">
+                        <h2>読みから漢字</h2>
+                        <p>表示された読みの「漢字」を答えよう！</p>
+                        <p id="best-y-to-k" class="best" hidden></p>
+                    </div>
+                    <button type="button" id="start-y-to-k" class="btn btn-primary start-btn">スタート</button>
+                </div>
+            </section>
         </div>
 
-        <div id="quiz-header">
+        <aside class="home-side">
+            <!-- Sign-in and sync. Shown only when config.js has the Firebase settings -->
+            <section id="account" class="account" aria-labelledby="account-title" hidden>
+                <h2 id="account-title">きろくの ほぞん</h2>
+                <div id="account-body" class="account-body"></div>
+            </section>
+            <details class="howto" id="howto">
+                <summary>あそびかた</summary>
+                <ul>
+                    <li>学年と 出題数を えらんで、「スタート」を おします。</li>
+                    <li>1問 10びょうの あいだに、4つの 中から 答えを えらびます。</li>
+                    <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
+                </ul>
+            </details>
+        </aside>
+    </main>
+
+    <div id="quiz-screen" class="screen game">
+        <header class="bar" id="quiz-header">
+            <button type="button" id="quit-btn" class="home-btn" aria-label="ホームにもどる"><span aria-hidden="true">‹</span>ホーム</button>
             <div class="header-left">
                 <span id="question-counter">第1問</span>
                 <span id="grade-badge" class="badge">1年生</span>
             </div>
-            <div id="timer">10</div>
+            <div id="timer" role="timer" aria-label="のこり時間">10</div>
+        </header>
+
+        <div class="progress-container">
+            <div id="progress-bar"></div>
         </div>
 
         <div id="question-area">
@@ -85,29 +140,41 @@
         </div>
 
         <div id="options-area" class="options">
-            <button class="option"></button>
-            <button class="option"></button>
-            <button class="option"></button>
-            <button class="option"></button>
+            <button type="button" class="option"></button>
+            <button type="button" class="option"></button>
+            <button type="button" class="option"></button>
+            <button type="button" class="option"></button>
         </div>
 
         <div id="feedback-area">
-            <p id="feedback"></p>
+            <p id="feedback" role="status"></p>
         </div>
     </div>
 
-    <div id="result-screen" class="screen">
+    <div id="result-screen" class="screen result-screen">
         <div class="result-card">
-            <h1>結果発表</h1>
-            <div id="rank-badge" class="rank-badge">RANK S</div>
-            <p id="score">正解率: 100%</p>
-            <p id="detail-score">10問中 10問正解</p>
+            <div class="result-head">
+                <svg id="result-hanamaru" class="hanamaru" viewBox="0 0 100 100" aria-hidden="true" hidden><polyline pathLength="1"></polyline></svg>
+                <div>
+                    <h1>結果発表</h1>
+                    <p id="detail-score" class="result-sub">10問中 10問正解</p>
+                </div>
+            </div>
+            <div class="result-score">
+                <p id="score">正解率: 100%</p>
+                <div id="rank-badge" class="rank-badge">RANK S</div>
+            </div>
             <p id="message">おめでとう！パーフェクト！</p>
-            <button id="retry-btn">もう一度挑戦する</button>
+            <p id="best-note" class="best-note" hidden></p>
+            <div class="result-actions">
+                <button type="button" id="retry-btn" class="btn btn-primary">もう一度挑戦する</button>
+            </div>
         </div>
     </div>
 
     <script src="kanji-data.js"></script>
+    <script src="records.js"></script>
+    <script src="cloud.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

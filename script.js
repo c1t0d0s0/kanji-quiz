@@ -6,6 +6,7 @@ const resultScreen = document.getElementById('result-screen');
 const startKtoYBtn = document.getElementById('start-k-to-y');
 const startYtoKBtn = document.getElementById('start-y-to-k');
 const retryBtn = document.getElementById('retry-btn');
+const quitBtn = document.getElementById('quit-btn');
 
 const gradePills = document.querySelectorAll('.grade-pill');
 const countPills = document.querySelectorAll('.count-pill');
@@ -22,6 +23,17 @@ const rankBadge = document.getElementById('rank-badge');
 const scoreEl = document.getElementById('score');
 const detailScoreEl = document.getElementById('detail-score');
 const messageEl = document.getElementById('message');
+const bestNoteEl = document.getElementById('best-note');
+const resultHanamaru = document.getElementById('result-hanamaru');
+
+const practiceDays = document.getElementById('practice-days');
+const practiceDaysNum = document.getElementById('practice-days-num');
+const bestEls = {
+    'k-to-y': document.getElementById('best-k-to-y'),
+    'y-to-k': document.getElementById('best-y-to-k')
+};
+const accountEl = document.getElementById('account');
+const accountBody = document.getElementById('account-body');
 
 // --- Quiz Settings & State ---
 let selectedGrade = 'all'; // 'all' or '1'..'6'
@@ -32,26 +44,135 @@ let currentQuestionIndex = 0;
 let score = 0;
 let timer;
 let timerInterval;
+let nextQuestionTimeout;
 let quizMode = ''; // 'k-to-y' or 'y-to-k'
+let quizItemId = ''; // record id of the quiz being played (mode + grade + count)
 const TIME_LIMIT = 10;
 let audioCtx;
 
 // --- Event Listeners for Selectors ---
+function selectPill(pills, attr, value) {
+    pills.forEach(p => {
+        const selected = p.dataset[attr] === String(value);
+        p.classList.toggle('active', selected);
+        p.setAttribute('aria-pressed', String(selected));
+    });
+}
+
 gradePills.forEach(pill => {
     pill.addEventListener('click', () => {
-        gradePills.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
         selectedGrade = pill.dataset.grade;
+        selectPill(gradePills, 'grade', selectedGrade);
+        Records.setSettings({ grade: selectedGrade });
+        renderRecords();
     });
 });
 
 countPills.forEach(pill => {
     pill.addEventListener('click', () => {
-        countPills.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
         selectedQuestionCount = parseInt(pill.dataset.count, 10);
+        selectPill(countPills, 'count', selectedQuestionCount);
+        Records.setSettings({ count: selectedQuestionCount });
+        renderRecords();
     });
 });
+
+// --- Records on the Start Screen ---
+function formatBest(best) {
+    return `${best.total}問中 ${best.best}問正解`;
+}
+
+function renderRecords() {
+    Object.keys(bestEls).forEach(mode => {
+        const best = Records.getBest(Records.itemId(mode, selectedGrade, selectedQuestionCount));
+        bestEls[mode].hidden = !best;
+        bestEls[mode].textContent = best ? `じこベスト ${formatBest(best)}` : '';
+    });
+    const days = Records.activeDayCount();
+    practiceDays.hidden = days === 0;
+    practiceDaysNum.textContent = `${days}日`;
+}
+
+// Restores the last selection and redraws the records (also after a sync replaced them)
+function renderHome() {
+    const settings = Records.getSettings();
+    selectedGrade = settings.grade || selectedGrade;
+    selectedQuestionCount = settings.count || selectedQuestionCount;
+    selectPill(gradePills, 'grade', selectedGrade);
+    selectPill(countPills, 'count', selectedQuestionCount);
+    renderRecords();
+}
+
+// --- Account (Google Sign-In) ---
+const ACCOUNT_TEXT = {
+    note: 'Googleで ログインすると、ほかの ブラウザや たんまつでも 同じ きろくで 遊べます。ログインしなくても 遊べます。',
+    signIn: 'Googleで ログイン',
+    signedIn: 'ログイン中',
+    signOut: 'ログアウト',
+    loading: 'たしかめています…',
+    syncing: 'ほぞん中…',
+    synced: 'ほぞんずみ',
+    offline: 'まだ ほぞんできていません。つながったら ほぞんします。',
+    askMigrate: 'この たんまつの きろくを アカウントに うつしますか？\n\n「OK」… うつす (アカウントの きろくと 合わせます)\n「キャンセル」… うつさない (たんまつの きろくは そのまま のこります)',
+    signOutUnsynced: 'まだ ほぞんできていない きろくが あります。今 ログアウトすると、その分は なくなります。ログアウトしますか？',
+    signInFailed: 'ログインできませんでした。もういちど ためしてください。'
+};
+
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+}
+
+function renderAccount() {
+    const { uid, status } = Cloud.state;
+    accountEl.hidden = !Cloud.available || status === 'unavailable';
+    if (accountEl.hidden) return;
+
+    if (status === 'loading') {
+        accountBody.replaceChildren(el('p', 'account-status', ACCOUNT_TEXT.loading));
+        return;
+    }
+
+    if (uid === null) {
+        const error = el('p', 'account-error');
+        error.setAttribute('role', 'alert');
+        const button = el('button', 'btn btn-primary', ACCOUNT_TEXT.signIn);
+        button.type = 'button';
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            error.textContent = '';
+            try {
+                await Cloud.signIn();
+            } catch (err) {
+                // Say nothing when the user closed the sign-in window themselves
+                const code = (err && err.code) || '';
+                if (!/popup-closed-by-user|cancelled-popup-request/.test(code)) {
+                    error.textContent = code ? `${ACCOUNT_TEXT.signInFailed} (${code})` : ACCOUNT_TEXT.signInFailed;
+                }
+                button.disabled = false;
+            }
+        });
+        accountBody.replaceChildren(el('p', 'account-note', ACCOUNT_TEXT.note), button, error);
+        return;
+    }
+
+    const stateLine = el('p', 'account-state');
+    const statusEl = el('span', `account-status is-${status}`, ACCOUNT_TEXT[status] || '');
+    statusEl.setAttribute('role', 'status');
+    stateLine.append(el('b', '', ACCOUNT_TEXT.signedIn), statusEl);
+    const signOut = el('button', 'btn', ACCOUNT_TEXT.signOut);
+    signOut.type = 'button';
+    signOut.addEventListener('click', async () => {
+        signOut.disabled = true;
+        if ((await Cloud.signOut()) === 'unsynced') {
+            if (confirm(ACCOUNT_TEXT.signOutUnsynced)) await Cloud.signOut(true);
+            else signOut.disabled = false;
+        }
+    });
+    accountBody.replaceChildren(stateLine, signOut);
+}
 
 // --- Audio Logic ---
 function initAudio() {
@@ -144,6 +265,29 @@ function shuffleArray(array) {
     return array;
 }
 
+// The spiral flower a teacher draws with a red pen (inside a 100 x 100 box)
+function hanamaruPoints() {
+    const pts = [];
+    for (let i = 0; i <= 140; i++) {
+        const t = i / 140;
+        const a = t * 3 * Math.PI * 2 - Math.PI / 2;
+        const r = 3 + t * 24;
+        pts.push(`${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`);
+    }
+    for (let i = 1; i <= 120; i++) {
+        const t = i / 120;
+        const a = t * Math.PI * 2 - Math.PI / 2;
+        const r = 27 + 13 * Math.abs(Math.sin(t * Math.PI * 6));
+        pts.push(`${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+}
+
+function showScreen(screen) {
+    [startScreen, quizScreen, resultScreen].forEach(s => s.classList.toggle('active', s === screen));
+    window.scrollTo(0, 0);
+}
+
 function getFilteredKanjiList() {
     if (selectedGrade === 'all') {
         return [...kanjiDatabase];
@@ -169,10 +313,9 @@ function startQuiz(mode) {
         return { ...item, targetReading };
     });
 
-    startScreen.classList.remove('active');
-    resultScreen.classList.remove('active');
-    quizScreen.classList.add('active');
+    quizItemId = Records.itemId(mode, selectedGrade, selectedQuestionCount);
 
+    showScreen(quizScreen);
     displayQuestion();
 }
 
@@ -203,6 +346,8 @@ function displayQuestion() {
     }
 
     questionEl.textContent = questionText;
+    questionEl.classList.toggle('is-kanji', quizMode === 'k-to-y');
+    optionButtons.forEach(button => button.classList.toggle('is-kanji', quizMode === 'y-to-k'));
 
     const options = generateOptions(currentKanji, correctAnswer);
     optionButtons.forEach((button, index) => {
@@ -306,7 +451,7 @@ function checkAnswer(selectedAnswer, correctAnswer) {
         playSound(false);
     }
 
-    setTimeout(() => {
+    nextQuestionTimeout = setTimeout(() => {
         currentQuestionIndex++;
         displayQuestion();
     }, 1400);
@@ -326,7 +471,7 @@ function handleTimeout() {
     highlightAnswer(null, false, correctAnswer);
     playSound(false);
 
-    setTimeout(() => {
+    nextQuestionTimeout = setTimeout(() => {
         currentQuestionIndex++;
         displayQuestion();
     }, 1400);
@@ -343,12 +488,13 @@ function highlightAnswer(selectedAnswer, isCorrect, correctAnswer) {
 }
 
 function endQuiz() {
-    quizScreen.classList.remove('active');
-    resultScreen.classList.add('active');
+    showScreen(resultScreen);
 
     const total = currentQuiz.length;
     const percentage = Math.round((score / total) * 100);
-    scoreEl.textContent = `正解率: ${percentage}%`;
+    const scoreNum = document.createElement('b');
+    scoreNum.textContent = percentage;
+    scoreEl.replaceChildren('正解率 ', scoreNum, '%');
     detailScoreEl.textContent = `${total}問中 ${score}問正解`;
 
     // Rank Calculation
@@ -378,6 +524,13 @@ function endQuiz() {
 
     rankBadge.textContent = rank;
     rankBadge.className = `rank-badge ${rankClass}`;
+    resultHanamaru.toggleAttribute('hidden', percentage < 80);
+
+    const { previous, isBest } = Records.recordResult(quizItemId, score, total);
+    // Nothing to compare with on the first play
+    bestNoteEl.hidden = !previous;
+    bestNoteEl.classList.toggle('is-new', isBest);
+    bestNoteEl.textContent = !previous ? '' : isBest ? 'じこベスト こうしん！' : `じこベスト ${formatBest(previous)}`;
 
     playResultSound(percentage);
 }
@@ -386,6 +539,25 @@ function endQuiz() {
 startKtoYBtn.addEventListener('click', () => startQuiz('k-to-y'));
 startYtoKBtn.addEventListener('click', () => startQuiz('y-to-k'));
 retryBtn.addEventListener('click', () => {
-    resultScreen.classList.remove('active');
-    startScreen.classList.add('active');
+    renderHome();
+    showScreen(startScreen);
+});
+quitBtn.addEventListener('click', () => {
+    clearInterval(timerInterval);
+    clearTimeout(nextQuestionTimeout);
+    renderHome();
+    showScreen(startScreen);
+});
+
+// --- Init ---
+resultHanamaru.querySelector('polyline').setAttribute('points', hanamaruPoints());
+// On wide screens there is room for the how-to, so it starts open
+document.getElementById('howto').open = matchMedia('(min-width: 64rem)').matches;
+Cloud.restore();
+renderHome();
+renderAccount();
+Cloud.start({
+    onStatus: renderAccount,
+    onData: renderHome,
+    askMigrate: () => confirm(ACCOUNT_TEXT.askMigrate)
 });
