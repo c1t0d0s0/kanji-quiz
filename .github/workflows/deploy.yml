@@ -1,0 +1,67 @@
+# Publishes the site to GitHub Pages whenever main is pushed
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Can also be run by hand from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never stop a deployment in progress; only cancel older runs that are still waiting
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # There is no build step: the site is the static files plus a generated config.js
+      - name: Collect the site files
+        run: |
+          mkdir dist
+          cp index.html *.css *.js dist/
+          rm -f dist/config.example.js
+      # config.js is not tracked by Git, so it is written from the repository variables.
+      # GTM_ID embeds the Google tag; the four FIREBASE_* values enable Google sign-in
+      # and saving to Firestore. Variables that are not registered stay empty (feature off).
+      - name: Write config.js
+        env:
+          GTM_ID: ${{ vars.GTM_ID }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+        run: |
+          node -e '
+            const names = ["GTM_ID", "FIREBASE_API_KEY", "FIREBASE_AUTH_DOMAIN", "FIREBASE_PROJECT_ID", "FIREBASE_APP_ID"];
+            const value = name => (process.env[name] || "").trim();
+            if (value("GTM_ID") && !/^(GTM|G)-[A-Z0-9]+$/.test(value("GTM_ID"))) {
+              throw new Error("GTM_ID must look like GTM-XXXXXXX or G-XXXXXXXXXX");
+            }
+            const firebase = names.slice(1).filter(value).length;
+            if (firebase > 0 && firebase < 4) {
+              throw new Error("Register all four FIREBASE_* variables, or none of them");
+            }
+            console.log(names.map(name => `const ${name} = ${JSON.stringify(value(name))};`).join("\n"));
+          ' > dist/config.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
