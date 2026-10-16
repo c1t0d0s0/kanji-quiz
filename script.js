@@ -51,6 +51,10 @@ const zukanDetail = document.getElementById('zukan-detail');
 const zukanBody = document.getElementById('zukan-body');
 
 // --- Quiz Settings & State ---
+const GRADES = [1, 2, 3, 4, 5, 6];
+const VALID_GRADES = ['all', ...GRADES.map(String)];
+const gradeParam = new URLSearchParams(window.location.search).get('grade');
+let urlGrade = VALID_GRADES.includes(gradeParam) ? gradeParam : null;
 let selectedGrade = 'all'; // 'all' or '1'..'6'
 let selectedQuestionCount = 10;
 
@@ -80,6 +84,7 @@ function selectPill(pills, attr, value) {
 
 gradePills.forEach(pill => {
     pill.addEventListener('click', () => {
+        urlGrade = null;
         selectedGrade = pill.dataset.grade;
         selectPill(gradePills, 'grade', selectedGrade);
         Records.setSettings({ grade: selectedGrade });
@@ -114,8 +119,6 @@ function renderRecords() {
 }
 
 // --- 漢字ずかん (kanji collected by answering them correctly) ---
-const GRADES = [1, 2, 3, 4, 5, 6];
-
 function countCollected(collected, list) {
     return list.filter(item => collected.has(item.kanji)).length;
 }
@@ -186,7 +189,7 @@ zukanDialog.addEventListener('click', event => {
 // Restores the last selection and redraws the records (also after a sync replaced them)
 function renderHome() {
     const settings = Records.getSettings();
-    selectedGrade = settings.grade || selectedGrade;
+    selectedGrade = urlGrade || settings.grade || selectedGrade;
     selectedQuestionCount = settings.count || selectedQuestionCount;
     selectPill(gradePills, 'grade', selectedGrade);
     selectPill(countPills, 'count', selectedQuestionCount);
