@@ -1,4 +1,4 @@
-// --- Local records (personal bests, practice days, last selection) ---
+// --- Local records (personal bests, practice days, collected kanji, last selection) ---
 // Guest records live under GUEST_KEY. While signed in, a per-user copy of the
 // Firestore records is kept under userKey(uid) and removed on sign-out.
 const Records = (() => {
@@ -17,6 +17,7 @@ const Records = (() => {
     function empty() {
         return {
             activeDays: [],
+            collected: [],
             settings: { grade: null, count: null, at: 0 },
             progress: {}
         };
@@ -25,6 +26,9 @@ const Records = (() => {
     // --- Validation (stored / remote data may be malformed) ---
     const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
     const normalizeDays = days => [...new Set((Array.isArray(days) ? days : []).filter(isDate))].sort();
+    // Kanji answered correctly at least once (the 漢字ずかん)
+    const isKanji = v => typeof v === 'string' && v.length > 0 && v.length <= 2;
+    const normalizeCollected = list => [...new Set((Array.isArray(list) ? list : []).filter(isKanji))].sort();
 
     function normalizeSettings(raw) {
         const s = raw || {};
@@ -45,6 +49,7 @@ const Records = (() => {
         const s = empty();
         if (!raw) return s;
         s.activeDays = normalizeDays(raw.activeDays);
+        s.collected = normalizeCollected(raw.collected);
         s.settings = normalizeSettings(raw.settings);
         for (const [id, value] of Object.entries(raw.progress || {})) {
             const p = normalizeProgress(value);
@@ -84,6 +89,7 @@ const Records = (() => {
         }
         return {
             activeDays: normalizeDays([...a.activeDays, ...b.activeDays]),
+            collected: normalizeCollected([...a.collected, ...b.collected]),
             settings: mergeSettings(a.settings, b.settings),
             progress
         };
@@ -91,11 +97,11 @@ const Records = (() => {
 
     const sameProgress = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
     const sameSummary = (a, b) =>
-        JSON.stringify([a.activeDays, a.settings]) === JSON.stringify([b.activeDays, b.settings]);
+        JSON.stringify([a.activeDays, a.collected, a.settings]) === JSON.stringify([b.activeDays, b.collected, b.settings]);
     const same = (a, b) => JSON.stringify(merge(a, a)) === JSON.stringify(merge(b, b));
 
     // Settings alone do not count as records.
-    const hasRecords = s => s.activeDays.length > 0 || Object.keys(s.progress).length > 0;
+    const hasRecords = s => s.activeDays.length > 0 || s.collected.length > 0 || Object.keys(s.progress).length > 0;
 
     // --- Storage ---
     // localStorage may be unavailable (e.g. private browsing); failures are ignored.
@@ -191,13 +197,19 @@ const Records = (() => {
         return load().activeDays.length;
     }
 
-    // Records a finished quiz. Returns the previous best and whether it was beaten.
-    function recordResult(id, score, total) {
+    function getCollected() {
+        return new Set(load().collected);
+    }
+
+    // Records a finished quiz and the kanji answered correctly in it. id is null for a
+    // review of missed kanji, which is not a personal best. Returns the previous best,
+    // whether it was beaten and the kanji that were added to the 漢字ずかん.
+    function recordResult(id, score, total, correctKanji = []) {
         const snapshot = load();
-        const previous = snapshot.progress[id] || null;
+        const previous = id ? snapshot.progress[id] || null : null;
         const result = { best: score, total, at: Date.now() };
         const changed = [];
-        const isBest = mergeProgress(previous, result) === result;
+        const isBest = id !== null && mergeProgress(previous, result) === result;
         if (isBest) {
             snapshot.progress[id] = result;
             changed.push(`progress:${id}`);
@@ -207,8 +219,14 @@ const Records = (() => {
             snapshot.activeDays = normalizeDays([...snapshot.activeDays, day]);
             changed.push('summary');
         }
+        const owned = new Set(snapshot.collected);
+        const newlyCollected = [...new Set(correctKanji.filter(k => isKanji(k) && !owned.has(k)))];
+        if (newlyCollected.length > 0) {
+            snapshot.collected = normalizeCollected([...snapshot.collected, ...newlyCollected]);
+            if (!changed.includes('summary')) changed.push('summary');
+        }
         if (changed.length > 0) save(snapshot, changed);
-        return { previous, isBest };
+        return { previous, isBest, newlyCollected };
     }
 
     // --- Firestore documents (shape shared by the learning apps) ---
@@ -219,8 +237,8 @@ const Records = (() => {
             schema: SCHEMA,
             updatedAt: now,
             activeDays: snapshot.activeDays,
-            // Not used by this app: a perfect score is status "done" on the progress document
-            completed: [],
+            // The kanji collected in the 漢字ずかん (a perfect score is status "done" on the progress document)
+            completed: snapshot.collected,
             inventory: {},
             spent: {},
             settings: snapshot.settings
@@ -228,7 +246,7 @@ const Records = (() => {
     }
 
     function fromAppDoc(doc) {
-        return normalize({ activeDays: doc && doc.activeDays, settings: doc && doc.settings });
+        return normalize({ activeDays: doc && doc.activeDays, collected: doc && doc.completed, settings: doc && doc.settings });
     }
 
     function toProgressDoc(p) {
@@ -248,7 +266,7 @@ const Records = (() => {
         SCHEMA,
         empty, merge, mergeProgress, same, sameSummary, sameProgress, hasRecords,
         load, save, use, currentUid, rememberedUid, rememberUid, clear, onChange,
-        itemId, today, getSettings, setSettings, getBest, activeDayCount, recordResult,
+        itemId, today, getSettings, setSettings, getBest, activeDayCount, getCollected, recordResult,
         toAppDoc, fromAppDoc, toProgressDoc, fromProgressDoc
     };
 })();

@@ -58,10 +58,17 @@
                 </div>
             </header>
 
-            <p id="practice-days" class="points" hidden>
-                <span class="points-label">れんしゅうした 日</span>
-                <b id="practice-days-num" class="points-num"></b>
-            </p>
+            <div class="stats">
+                <p id="practice-days" class="points" hidden>
+                    <span class="points-label">れんしゅうした 日</span>
+                    <b id="practice-days-num" class="points-num"></b>
+                </p>
+                <button type="button" id="zukan-open" class="points zukan-open">
+                    <span class="points-label">漢字ずかん</span>
+                    <b id="zukan-count" class="points-num"></b>
+                    <span class="zukan-meter" aria-hidden="true"><span id="zukan-meter-bar"></span></span>
+                </button>
+            </div>
 
             <!-- Grade Selector -->
             <section class="selection-section" aria-labelledby="grade-title">
@@ -120,6 +127,8 @@
                     <li>学年と 出題数を えらんで、「スタート」を おします。</li>
                     <li>1問 10びょうの あいだに、4つの 中から 答えを えらびます。</li>
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
+                    <li>正解した 漢字は「漢字ずかん」に あつまります。ぜんぶ あつめよう！</li>
+                    <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
                 </ul>
             </details>
         </aside>
@@ -150,8 +159,9 @@
             <button type="button" class="option"></button>
         </div>
 
-        <div id="feedback-area">
-            <p id="feedback" role="status"></p>
+        <div id="feedback-area" role="status">
+            <p id="feedback"></p>
+            <p id="answer-note" class="answer-note"></p>
         </div>
     </div>
 
@@ -170,11 +180,33 @@
             </div>
             <p id="message">おめでとう！パーフェクト！</p>
             <p id="best-note" class="best-note" hidden></p>
+            <p id="combo-note" class="combo-note" hidden></p>
+            <section id="new-kanji" class="result-section" hidden>
+                <h2>ずかんに くわわった 漢字</h2>
+                <div id="new-kanji-list" class="new-kanji-list"></div>
+            </section>
+            <section id="missed" class="result-section" hidden>
+                <h2>まちがえた 漢字</h2>
+                <ul id="missed-list" class="missed-list"></ul>
+            </section>
             <div class="result-actions">
-                <button type="button" id="retry-btn" class="btn btn-primary">もう一度挑戦する</button>
+                <button type="button" id="review-btn" class="btn" hidden>まちがえた 漢字だけ もう一度</button>
+                <button type="button" id="retry-btn" class="btn btn-primary">ホームに もどる</button>
             </div>
         </div>
     </div>
+
+    <dialog id="zukan" class="zukan" aria-labelledby="zukan-title">
+        <header class="zukan-head">
+            <div>
+                <h1 id="zukan-title">漢字ずかん</h1>
+                <p id="zukan-summary" class="zukan-summary"></p>
+            </div>
+            <button type="button" id="zukan-close" class="btn">とじる</button>
+        </header>
+        <p id="zukan-detail" class="zukan-detail" aria-live="polite">あつめた 漢字を おすと、読みが 見られるよ。</p>
+        <div id="zukan-body" class="zukan-body"></div>
+    </dialog>
 
     <script src="kanji-data.js"></script>
     <script src="records.js"></script>

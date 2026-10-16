@@ -287,13 +287,13 @@ const Cloud = (() => {
         }
         if (summary) {
             theirSummary = await remote.loadSummary(uid);
-            if (theirSummary) Object.assign(theirs, { activeDays: theirSummary.activeDays, settings: theirSummary.settings });
+            if (theirSummary) Object.assign(theirs, { activeDays: theirSummary.activeDays, collected: theirSummary.collected, settings: theirSummary.settings });
         }
         if (state.uid !== uid) return;
 
         const before = Records.load();
         // Without the remote summary, keep the local one as it is
-        if (!summary) Object.assign(theirs, { activeDays: before.activeDays, settings: before.settings });
+        if (!summary) Object.assign(theirs, { activeDays: before.activeDays, collected: before.collected, settings: before.settings });
         const merged = Records.merge(theirs, before);
         if (!Records.same(merged, before)) {
             Records.save(merged, [], true);

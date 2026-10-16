@@ -291,14 +291,57 @@ button {
     line-height: 1.6;
 }
 
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: -1rem;
+}
+
 .points {
     display: flex;
     align-items: baseline;
     gap: 0.6rem;
-    margin-top: -1rem;
     padding: 0.5rem 1.25rem;
     background: var(--paper);
     box-shadow: 0 0 0 1px var(--rule);
+}
+
+/* The 漢字ずかん: how many kanji are collected, and a button to look at them */
+.zukan-open {
+    flex: 1 1 14rem;
+    flex-wrap: wrap;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.zukan-open::after {
+    content: '›';
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+@media (hover: hover) {
+    .zukan-open:hover {
+        background: var(--mark-soft);
+    }
+}
+
+.zukan-meter {
+    order: 1;
+    flex: 1 0 100%;
+    height: 0.375rem;
+    background: var(--rule-soft);
+}
+
+.zukan-meter span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--red);
 }
 
 .points-label {
@@ -697,8 +740,45 @@ button {
 #feedback-area {
     flex: none;
     display: grid;
-    place-items: center;
-    height: 2.5rem;
+    place-content: center;
+    justify-items: center;
+    gap: 0.35rem;
+    height: 4.25rem;
+}
+
+/* The kanji with all its readings; the one asked is underlined */
+.answer-note {
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.answer-note b {
+    border-bottom: 2px solid var(--red);
+}
+
+.answer-kanji {
+    margin-right: 0.15em;
+    font-size: 1.25em;
+}
+
+#feedback .combo {
+    display: inline-block;
+    margin-left: 0.5em;
+    padding: 0.15em 0.5em;
+    border-radius: 999px;
+    background: var(--mark);
+    color: var(--ink);
+    font-size: 0.75em;
+    animation: pop 0.35s ease-out both;
+}
+
+@keyframes pop {
+    from { opacity: 0; transform: scale(0.4); }
+    70% { transform: scale(1.15); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 #feedback {
@@ -838,21 +918,203 @@ button {
     line-height: 1.4;
 }
 
-.result-actions {
-    display: flex;
-    justify-content: flex-end;
+.combo-note {
+    color: var(--red);
+    font-weight: 700;
+}
+
+.result-section {
+    display: grid;
+    gap: 0.5rem;
     padding-top: 1rem;
     border-top: 1px solid var(--rule-soft);
 }
 
-#retry-btn {
+.result-section h2 {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.new-kanji-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.new-kanji-chip {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    background: var(--mark);
+    box-shadow: 0 0 0 1px var(--rule);
+    color: var(--ink);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.75rem;
+    line-height: 1;
+    animation: pop 0.35s ease-out both;
+}
+
+.missed-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.5rem;
+}
+
+.missed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.6rem;
+    background: var(--red-soft);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.missed-kanji {
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.75rem;
+    line-height: 1.2;
+}
+
+.missed-readings {
+    min-width: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule-soft);
+}
+
+.result-actions .btn {
     min-height: 2.75rem;
+}
+
+/* --- 漢字ずかん --- */
+.zukan {
+    width: min(44rem, calc(100% - 1.5rem));
+    max-height: calc(100dvh - 2rem);
+    padding: 0;
+    border: 0;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 0 0 1px var(--rule), 0 1.5rem 3rem rgb(0 0 0 / 0.25);
+}
+
+.zukan[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.zukan::backdrop {
+    background: rgb(0 0 0 / 0.45);
+}
+
+.zukan-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem 0;
+}
+
+.zukan-head h1 {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.3;
+}
+
+.zukan-summary {
+    color: var(--muted);
+    font-size: 0.9375rem;
+}
+
+.zukan-detail {
+    margin: 0.75rem 1.25rem 0;
+    padding: 0.4rem 0.75rem;
+    min-height: 2.75rem;
+    background: var(--mark-soft);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    font-size: 0.9375rem;
+}
+
+.zukan-detail-kanji {
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.2;
+}
+
+.zukan-body {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+.zukan-grade h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.zukan-grade-count {
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+
+.zukan-grade-count.is-complete {
+    color: var(--red);
+}
+
+.zukan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+    gap: 1px;
+    padding: 1px;
+}
+
+.zukan-cell {
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    color: var(--rule-soft);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.375rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.zukan-cell.is-collected {
+    background: var(--mark-soft);
+    color: var(--ink);
+}
+
+.zukan-cell:focus-visible {
+    outline-offset: -3px;
+    outline-color: var(--red);
 }
 
 @media (prefers-reduced-motion: reduce) {
     #timer.warning,
     .result-card .hanamaru polyline,
-    .rank-badge {
+    .rank-badge,
+    #feedback .combo,
+    .new-kanji-chip {
         animation: none;
     }
 
