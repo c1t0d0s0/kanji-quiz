@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Stop here if the 熟語 list does not match the kanji list (scripts/ is not published)
+      - name: Check the kanji and 熟語 data
+        run: node scripts/check-data.js
       # There is no build step: the site is the static files plus a generated config.js
       - name: Collect the site files
         run: |
@@ -51,6 +54,9 @@ jobs:
             }
             console.log(names.map(name => `const ${name} = ${JSON.stringify(value(name))};`).join("\n"));
           ' > dist/config.js
+      # Add "?v=<hash>" to each script and stylesheet, so a changed file is never served from the browser cache
+      - name: Add versions to the file names in index.html
+        run: node scripts/add-versions.js dist/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

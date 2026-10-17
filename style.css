@@ -737,6 +737,123 @@ button {
     opacity: 0.7;
 }
 
+/* --- 熟語くみたて --- */
+.build {
+    flex: none;
+    display: grid;
+    gap: 1rem;
+}
+
+.build-slots {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    justify-self: center;
+}
+
+/* Practice squares, like the kanji question */
+.slot {
+    width: clamp(3rem, min(18vw, 10dvh), 4.5rem);
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    box-shadow: 0 0 0 2px var(--rule);
+    background:
+        repeating-linear-gradient(to right, var(--rule-soft) 0 4px, transparent 4px 8px) center / 100% 1px no-repeat,
+        repeating-linear-gradient(to bottom, var(--rule-soft) 0 4px, transparent 4px 8px) center / 1px 100% no-repeat,
+        var(--paper);
+    color: var(--ink);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: clamp(2rem, min(12vw, 6.5dvh), 3rem);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.slot:disabled {
+    cursor: default;
+}
+
+/* The square the next tile goes into */
+.slot.is-next {
+    box-shadow: 0 0 0 3px var(--ink);
+}
+
+.slot:focus-visible {
+    outline-offset: 3px;
+}
+
+/* Marked like a test paper: a red circle around the word, or a cross over it */
+.build-slots.correct::after,
+.build-slots.incorrect::after {
+    content: '';
+    position: absolute;
+    inset: -0.6rem -0.9rem;
+    pointer-events: none;
+}
+
+.build-slots.correct::after {
+    border: 3px solid var(--red);
+    border-radius: 50%;
+}
+
+.build-slots.incorrect .slot {
+    background-color: var(--red-soft);
+}
+
+.build-slots.incorrect::after {
+    inset: -0.3rem;
+    background: linear-gradient(to top right, transparent calc(50% - 1.5px), var(--red) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px));
+    opacity: 0.6;
+}
+
+.build-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+}
+
+.tile {
+    min-height: clamp(3rem, 9dvh, 4.5rem);
+    padding: 0;
+    border: 0;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+    color: var(--ink);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: clamp(1.75rem, min(9vw, 6dvh), 2.5rem);
+    line-height: 1;
+    cursor: pointer;
+}
+
+@media (hover: hover) {
+    .tile:hover:not(:disabled) {
+        background: var(--mark-soft);
+    }
+}
+
+.tile:active:not(:disabled) {
+    background: var(--mark);
+}
+
+.tile:focus-visible {
+    outline-offset: -4px;
+    outline-color: var(--red);
+}
+
+/* A tile already placed: its spot stays, so the others do not move */
+.tile.is-used {
+    background: transparent;
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    color: transparent;
+}
+
+.tile:disabled {
+    cursor: default;
+}
+
 #feedback-area {
     flex: none;
     display: grid;
@@ -748,6 +865,7 @@ button {
 
 /* The kanji with all its readings; the one asked is underlined */
 .answer-note {
+    max-width: 100%;
     font-family: var(--font-kyokasho);
     font-weight: 600;
     font-size: 1.0625rem;
@@ -762,6 +880,40 @@ button {
 .answer-kanji {
     margin-right: 0.15em;
     font-size: 1.25em;
+}
+
+/* 熟語: the readings of each of its kanji, under the word */
+.answer-parts {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--muted);
+    font-family: var(--ui);
+    font-weight: 500;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+/* Each kanji's readings stay on one line */
+.answer-parts span {
+    display: inline-block;
+    margin: 0 0.4em;
+    white-space: nowrap;
+}
+
+.is-kumitate #feedback-area {
+    height: 5.25rem;
+}
+
+/* The reading of a 熟語 can be long (up to 11 kana): keep it on one line */
+.is-kumitate #question-area {
+    max-height: 12rem;
+}
+
+.is-kumitate #question {
+    padding: 0.4em 0.5em;
+    font-size: clamp(1.25rem, min(7vw, 7dvh), 3rem);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
 }
 
 #feedback .combo {
@@ -978,6 +1130,11 @@ button {
     line-height: 1.2;
 }
 
+.missed-item.is-word {
+    flex-wrap: wrap;
+    gap: 0 0.6rem;
+}
+
 .missed-readings {
     min-width: 0;
     font-size: 0.875rem;
@@ -1102,6 +1259,59 @@ button {
 .zukan-cell.is-collected {
     background: var(--mark-soft);
     color: var(--ink);
+}
+
+/* The 熟語ずかん: each grade folds, and the words take wider cells */
+.zukan-fold summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+}
+
+.zukan-fold summary::-webkit-details-marker {
+    display: none;
+}
+
+.zukan-fold summary::before {
+    content: '▸';
+    color: var(--muted);
+}
+
+.zukan-fold[open] summary::before {
+    content: '▾';
+}
+
+.zukan-fold[open] summary {
+    margin-bottom: 0.5rem;
+}
+
+.zukan-word-grid {
+    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+}
+
+.zukan-cell.zukan-word {
+    aspect-ratio: auto;
+    padding: 0.35rem 0.25rem;
+    font-size: 1.125rem;
+    line-height: 1.3;
+}
+
+.zukan-tabs {
+    grid-template-columns: 1fr 1fr;
+    margin: 0.75rem 1.25rem 0;
+}
+
+.zukan-tabs .seg-option {
+    min-height: 2.25rem;
+}
+
+.new-word-chip {
+    width: auto;
+    padding: 0 0.5rem;
+    font-size: 1.375rem;
 }
 
 .zukan-cell:focus-visible {

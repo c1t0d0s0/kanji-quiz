@@ -68,6 +68,11 @@
                     <b id="zukan-count" class="points-num"></b>
                     <span class="zukan-meter" aria-hidden="true"><span id="zukan-meter-bar"></span></span>
                 </button>
+                <button type="button" id="word-zukan-open" class="points zukan-open">
+                    <span class="points-label">熟語ずかん</span>
+                    <b id="word-zukan-count" class="points-num"></b>
+                    <span class="zukan-meter" aria-hidden="true"><span id="word-zukan-meter-bar"></span></span>
+                </button>
             </div>
 
             <!-- Grade Selector -->
@@ -112,6 +117,14 @@
                     </div>
                     <button type="button" id="start-y-to-k" class="btn btn-primary start-btn">スタート</button>
                 </div>
+                <div class="mode-card">
+                    <div class="mode-text">
+                        <h2><ruby>熟語<rt>じゅくご</rt></ruby>くみたて</h2>
+                        <p>読みに 合う 漢字を ならべて、熟語を 作ろう！</p>
+                        <p id="best-kumitate" class="best" hidden></p>
+                    </div>
+                    <button type="button" id="start-kumitate" class="btn btn-primary start-btn">スタート</button>
+                </div>
             </section>
         </div>
 
@@ -127,7 +140,8 @@
                     <li>学年と 出題数を えらんで、「スタート」を おします。</li>
                     <li>1問 10びょうの あいだに、4つの 中から 答えを えらびます。</li>
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
-                    <li>正解した 漢字は「漢字ずかん」に あつまります。ぜんぶ あつめよう！</li>
+                    <li>「熟語くみたて」では、読みに 合う 漢字を じゅんばんに おして 熟語を 作ります。まちがえた 字は、マスを おすと もどせます。</li>
+                    <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。ぜんぶ あつめよう！</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
                 </ul>
             </details>
@@ -150,6 +164,12 @@
 
         <div id="question-area">
             <p id="question"></p>
+        </div>
+
+        <!-- 熟語くみたて: tap the tiles in order to fill the squares -->
+        <div id="build-area" class="build" hidden>
+            <div id="build-slots" class="build-slots" role="group" aria-label="組み立てた熟語"></div>
+            <div id="build-tiles" class="build-tiles" role="group" aria-label="漢字のタイル"></div>
         </div>
 
         <div id="options-area" class="options">
@@ -185,8 +205,12 @@
                 <h2>ずかんに くわわった 漢字</h2>
                 <div id="new-kanji-list" class="new-kanji-list"></div>
             </section>
+            <section id="new-words" class="result-section" hidden>
+                <h2>ずかんに くわわった 熟語</h2>
+                <div id="new-words-list" class="new-kanji-list"></div>
+            </section>
             <section id="missed" class="result-section" hidden>
-                <h2>まちがえた 漢字</h2>
+                <h2 id="missed-title">まちがえた 漢字</h2>
                 <ul id="missed-list" class="missed-list"></ul>
             </section>
             <div class="result-actions">
@@ -204,11 +228,16 @@
             </div>
             <button type="button" id="zukan-close" class="btn">とじる</button>
         </header>
+        <div class="seg zukan-tabs" role="group" aria-label="ずかんの しゅるい">
+            <button type="button" class="seg-option" data-zukan="kanji" aria-pressed="true">漢字</button>
+            <button type="button" class="seg-option" data-zukan="words" aria-pressed="false">熟語</button>
+        </div>
         <p id="zukan-detail" class="zukan-detail" aria-live="polite">あつめた 漢字を おすと、読みが 見られるよ。</p>
         <div id="zukan-body" class="zukan-body"></div>
     </dialog>
 
     <script src="kanji-data.js"></script>
+    <script src="jukugo-data.js"></script>
     <script src="records.js"></script>
     <script src="cloud.js"></script>
     <script src="script.js"></script>

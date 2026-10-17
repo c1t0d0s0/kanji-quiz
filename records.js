@@ -1,4 +1,4 @@
-// --- Local records (personal bests, practice days, collected kanji, last selection) ---
+// --- Local records (personal bests, practice days, collected kanji and words, last selection) ---
 // Guest records live under GUEST_KEY. While signed in, a per-user copy of the
 // Firestore records is kept under userKey(uid) and removed on sign-out.
 const Records = (() => {
@@ -8,6 +8,8 @@ const Records = (() => {
     const SCHEMA = 1;
     const GRADES = ['all', '1', '2', '3', '4', '5', '6'];
     const COUNTS = [5, 10, 20];
+    // Collected 熟語 share the app document's `completed` list with the kanji, marked by this prefix
+    const WORD_PREFIX = 'jukugo:';
 
     let key = GUEST_KEY;
     let listener = null;
@@ -18,6 +20,7 @@ const Records = (() => {
         return {
             activeDays: [],
             collected: [],
+            words: [],
             settings: { grade: null, count: null, at: 0 },
             progress: {}
         };
@@ -29,6 +32,9 @@ const Records = (() => {
     // Kanji answered correctly at least once (the 漢字ずかん)
     const isKanji = v => typeof v === 'string' && v.length > 0 && v.length <= 2;
     const normalizeCollected = list => [...new Set((Array.isArray(list) ? list : []).filter(isKanji))].sort();
+    // 熟語 built correctly at least once (the 熟語ずかん)
+    const isWord = v => typeof v === 'string' && [...v].length >= 2 && [...v].length <= 4;
+    const normalizeWords = list => [...new Set((Array.isArray(list) ? list : []).filter(isWord))].sort();
 
     function normalizeSettings(raw) {
         const s = raw || {};
@@ -50,6 +56,7 @@ const Records = (() => {
         if (!raw) return s;
         s.activeDays = normalizeDays(raw.activeDays);
         s.collected = normalizeCollected(raw.collected);
+        s.words = normalizeWords(raw.words);
         s.settings = normalizeSettings(raw.settings);
         for (const [id, value] of Object.entries(raw.progress || {})) {
             const p = normalizeProgress(value);
@@ -90,6 +97,7 @@ const Records = (() => {
         return {
             activeDays: normalizeDays([...a.activeDays, ...b.activeDays]),
             collected: normalizeCollected([...a.collected, ...b.collected]),
+            words: normalizeWords([...a.words, ...b.words]),
             settings: mergeSettings(a.settings, b.settings),
             progress
         };
@@ -97,11 +105,12 @@ const Records = (() => {
 
     const sameProgress = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
     const sameSummary = (a, b) =>
-        JSON.stringify([a.activeDays, a.collected, a.settings]) === JSON.stringify([b.activeDays, b.collected, b.settings]);
+        JSON.stringify([a.activeDays, a.collected, a.words, a.settings]) === JSON.stringify([b.activeDays, b.collected, b.words, b.settings]);
     const same = (a, b) => JSON.stringify(merge(a, a)) === JSON.stringify(merge(b, b));
 
     // Settings alone do not count as records.
-    const hasRecords = s => s.activeDays.length > 0 || s.collected.length > 0 || Object.keys(s.progress).length > 0;
+    const hasRecords = s =>
+        s.activeDays.length > 0 || s.collected.length > 0 || s.words.length > 0 || Object.keys(s.progress).length > 0;
 
     // --- Storage ---
     // localStorage may be unavailable (e.g. private browsing); failures are ignored.
@@ -201,10 +210,14 @@ const Records = (() => {
         return new Set(load().collected);
     }
 
-    // Records a finished quiz and the kanji answered correctly in it. id is null for a
-    // review of missed kanji, which is not a personal best. Returns the previous best,
-    // whether it was beaten and the kanji that were added to the 漢字ずかん.
-    function recordResult(id, score, total, correctKanji = []) {
+    function getCollectedWords() {
+        return new Set(load().words);
+    }
+
+    // Records a finished quiz and the kanji (or 熟語) answered correctly in it. id is null
+    // for a review of missed questions, which is not a personal best. Returns the previous
+    // best, whether it was beaten and what was added to the 漢字ずかん / 熟語ずかん.
+    function recordResult(id, score, total, correctKanji = [], correctWords = []) {
         const snapshot = load();
         const previous = id ? snapshot.progress[id] || null : null;
         const result = { best: score, total, at: Date.now() };
@@ -225,8 +238,14 @@ const Records = (() => {
             snapshot.collected = normalizeCollected([...snapshot.collected, ...newlyCollected]);
             if (!changed.includes('summary')) changed.push('summary');
         }
+        const ownedWords = new Set(snapshot.words);
+        const newlyCollectedWords = [...new Set(correctWords.filter(w => isWord(w) && !ownedWords.has(w)))];
+        if (newlyCollectedWords.length > 0) {
+            snapshot.words = normalizeWords([...snapshot.words, ...newlyCollectedWords]);
+            if (!changed.includes('summary')) changed.push('summary');
+        }
         if (changed.length > 0) save(snapshot, changed);
-        return { previous, isBest, newlyCollected };
+        return { previous, isBest, newlyCollected, newlyCollectedWords };
     }
 
     // --- Firestore documents (shape shared by the learning apps) ---
@@ -237,8 +256,9 @@ const Records = (() => {
             schema: SCHEMA,
             updatedAt: now,
             activeDays: snapshot.activeDays,
-            // The kanji collected in the 漢字ずかん (a perfect score is status "done" on the progress document)
-            completed: snapshot.collected,
+            // The kanji and the 熟語 ("jukugo:学校") collected in the ずかん
+            // (a perfect score is status "done" on the progress document)
+            completed: [...snapshot.collected, ...snapshot.words.map(w => WORD_PREFIX + w)],
             inventory: {},
             spent: {},
             settings: snapshot.settings
@@ -246,7 +266,13 @@ const Records = (() => {
     }
 
     function fromAppDoc(doc) {
-        return normalize({ activeDays: doc && doc.activeDays, collected: doc && doc.completed, settings: doc && doc.settings });
+        const completed = Array.isArray(doc && doc.completed) ? doc.completed.filter(v => typeof v === 'string') : [];
+        return normalize({
+            activeDays: doc && doc.activeDays,
+            collected: completed.filter(v => !v.startsWith(WORD_PREFIX)),
+            words: completed.filter(v => v.startsWith(WORD_PREFIX)).map(v => v.slice(WORD_PREFIX.length)),
+            settings: doc && doc.settings
+        });
     }
 
     function toProgressDoc(p) {
@@ -266,7 +292,7 @@ const Records = (() => {
         SCHEMA,
         empty, merge, mergeProgress, same, sameSummary, sameProgress, hasRecords,
         load, save, use, currentUid, rememberedUid, rememberUid, clear, onChange,
-        itemId, today, getSettings, setSettings, getBest, activeDayCount, getCollected, recordResult,
+        itemId, today, getSettings, setSettings, getBest, activeDayCount, getCollected, getCollectedWords, recordResult,
         toAppDoc, fromAppDoc, toProgressDoc, fromProgressDoc
     };
 })();

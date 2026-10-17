@@ -5,6 +5,7 @@ const resultScreen = document.getElementById('result-screen');
 
 const startKtoYBtn = document.getElementById('start-k-to-y');
 const startYtoKBtn = document.getElementById('start-y-to-k');
+const startKumitateBtn = document.getElementById('start-kumitate');
 const retryBtn = document.getElementById('retry-btn');
 const reviewBtn = document.getElementById('review-btn');
 const quitBtn = document.getElementById('quit-btn');
@@ -18,6 +19,10 @@ const gradeBadge = document.getElementById('grade-badge');
 const timerDisplay = document.getElementById('timer');
 const questionEl = document.getElementById('question');
 const optionButtons = Array.from(document.getElementsByClassName('option'));
+const optionsArea = document.getElementById('options-area');
+const buildArea = document.getElementById('build-area');
+const buildSlots = document.getElementById('build-slots');
+const buildTiles = document.getElementById('build-tiles');
 const feedbackEl = document.getElementById('feedback');
 const answerNoteEl = document.getElementById('answer-note');
 
@@ -30,14 +35,18 @@ const resultHanamaru = document.getElementById('result-hanamaru');
 const comboNoteEl = document.getElementById('combo-note');
 const newKanjiSection = document.getElementById('new-kanji');
 const newKanjiList = document.getElementById('new-kanji-list');
+const newWordsSection = document.getElementById('new-words');
+const newWordsList = document.getElementById('new-words-list');
 const missedSection = document.getElementById('missed');
+const missedTitle = document.getElementById('missed-title');
 const missedList = document.getElementById('missed-list');
 
 const practiceDays = document.getElementById('practice-days');
 const practiceDaysNum = document.getElementById('practice-days-num');
 const bestEls = {
     'k-to-y': document.getElementById('best-k-to-y'),
-    'y-to-k': document.getElementById('best-y-to-k')
+    'y-to-k': document.getElementById('best-y-to-k'),
+    kumitate: document.getElementById('best-kumitate')
 };
 const accountEl = document.getElementById('account');
 const accountBody = document.getElementById('account-body');
@@ -45,7 +54,12 @@ const accountBody = document.getElementById('account-body');
 const zukanOpenBtn = document.getElementById('zukan-open');
 const zukanCount = document.getElementById('zukan-count');
 const zukanMeterBar = document.getElementById('zukan-meter-bar');
+const wordZukanOpenBtn = document.getElementById('word-zukan-open');
+const wordZukanCount = document.getElementById('word-zukan-count');
+const wordZukanMeterBar = document.getElementById('word-zukan-meter-bar');
 const zukanDialog = document.getElementById('zukan');
+const zukanTitle = document.getElementById('zukan-title');
+const zukanTabs = document.querySelectorAll('.zukan-tabs .seg-option');
 const zukanSummary = document.getElementById('zukan-summary');
 const zukanDetail = document.getElementById('zukan-detail');
 const zukanBody = document.getElementById('zukan-body');
@@ -64,13 +78,27 @@ let score = 0;
 let timer;
 let timerInterval;
 let nextQuestionTimeout;
-let quizMode = ''; // 'k-to-y' or 'y-to-k'
+let quizMode = ''; // 'k-to-y', 'y-to-k' or 'kumitate' (熟語くみたて)
 let quizItemId = null; // record id of the quiz being played (mode + grade + count); null for a review
 let combo = 0; // correct answers in a row
 let maxCombo = 0;
 let missedItems = []; // questions answered wrong or too late, for the review
 let correctKanji = []; // kanji answered correctly, for the 漢字ずかん
+let correctWords = []; // 熟語 built correctly, for the 熟語ずかん
+let build = null; // 熟語くみたて: { tiles: [{ char, used }], slots: [tile index or null], locked }
 const TIME_LIMIT = 10;
+// 熟語くみたて: more time for longer words, and always 8 tiles (4 x 2)
+const KUMITATE_TIME_LIMIT = { 2: 15, 3: 18, 4: 21 };
+const TILE_COUNT = 8;
+
+const kanjiReadings = new Map(kanjiDatabase.map(item => [item.kanji, item.readings]));
+const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
+// Words with the same reading (科学 / 化学): building any of them is correct
+const wordsByReading = new Map();
+jukugoDatabase.forEach(item => wordsByReading.set(item.reading, [...(wordsByReading.get(item.reading) || []), item.word]));
+// Kanji sharing a reading make good look-alike tiles (校 こう → 高・交・考)
+const kanjiByReading = new Map();
+kanjiDatabase.forEach(item => item.readings.forEach(r => kanjiByReading.set(r, [...(kanjiByReading.get(r) || []), item.kanji])));
 let audioCtx;
 
 // --- Event Listeners for Selectors ---
@@ -129,13 +157,27 @@ function renderZukanCount() {
     zukanCount.textContent = `${got} / ${kanjiDatabase.length}`;
     zukanMeterBar.style.width = `${(got / kanjiDatabase.length) * 100}%`;
     zukanOpenBtn.setAttribute('aria-label', `漢字ずかんを ひらく (${kanjiDatabase.length}字中 ${got}字 あつめた)`);
+
+    const words = Records.getCollectedWords();
+    const gotWords = jukugoDatabase.filter(item => words.has(item.word)).length;
+    wordZukanCount.textContent = `${gotWords} / ${jukugoDatabase.length}`;
+    wordZukanMeterBar.style.width = `${(gotWords / jukugoDatabase.length) * 100}%`;
+    wordZukanOpenBtn.setAttribute('aria-label', `熟語ずかんを ひらく (${jukugoDatabase.length}語中 ${gotWords}語 あつめた)`);
 }
 
 function readingsText(item) {
     return item.readings.join('・');
 }
 
+let zukanKind = 'kanji'; // 'kanji' or 'words'
+
 function renderZukan() {
+    zukanTitle.textContent = zukanKind === 'kanji' ? '漢字ずかん' : '熟語ずかん';
+    zukanTabs.forEach(tab => tab.setAttribute('aria-pressed', String(tab.dataset.zukan === zukanKind)));
+    if (zukanKind === 'words') {
+        renderWordZukan();
+        return;
+    }
     const collected = Records.getCollected();
     const got = countCollected(collected, kanjiDatabase);
     zukanSummary.textContent = got === kanjiDatabase.length
@@ -175,11 +217,58 @@ function renderZukan() {
     zukanBody.replaceChildren(...sections);
 }
 
-zukanOpenBtn.addEventListener('click', () => {
+// The 熟語 are many, so each grade is folded and its words are drawn when it is opened
+function renderWordZukan() {
+    const collected = Records.getCollectedWords();
+    const got = jukugoDatabase.filter(item => collected.has(item.word)).length;
+    zukanSummary.textContent = got === jukugoDatabase.length
+        ? `${got}語 ぜんぶ あつめた！ すごい！`
+        : `${jukugoDatabase.length}語中 ${got}語 あつめたよ`;
+    zukanDetail.textContent = '学年を おすと 熟語が 見られるよ。あつめた 熟語を おすと、読みが 出るよ。';
+
+    const sections = GRADES.map(grade => {
+        const list = jukugoDatabase.filter(item => item.grade === grade);
+        const gradeGot = list.filter(item => collected.has(item.word)).length;
+        const section = el('details', 'zukan-grade zukan-fold');
+        const summary = el('summary', '', `${grade}年生`);
+        summary.append(el('span', gradeGot === list.length ? 'zukan-grade-count is-complete' : 'zukan-grade-count',
+            gradeGot === list.length ? `${gradeGot} / ${list.length} コンプリート！` : `${gradeGot} / ${list.length}`));
+        section.append(summary);
+        section.addEventListener('toggle', () => {
+            if (!section.open || section.querySelector('.zukan-grid')) return;
+            const grid = el('div', 'zukan-grid zukan-word-grid');
+            list.forEach(item => {
+                const has = collected.has(item.word);
+                const cell = el('button', has ? 'zukan-cell zukan-word is-collected' : 'zukan-cell zukan-word', item.word);
+                cell.type = 'button';
+                cell.setAttribute('aria-label', has ? `${item.word} (${item.reading})` : `${item.word} (まだ あつめていない)`);
+                cell.addEventListener('click', () => {
+                    if (has) zukanDetail.replaceChildren(el('b', 'zukan-detail-kanji', item.word), ` ${item.reading}`);
+                    else zukanDetail.textContent = `「${item.word}」は まだ あつめていないよ。熟語くみたてで 正解すると あつまるよ！`;
+                });
+                grid.append(cell);
+            });
+            section.append(grid);
+        });
+        return section;
+    });
+    zukanBody.replaceChildren(...sections);
+}
+
+function openZukan(kind) {
+    zukanKind = kind;
     renderZukan();
     zukanDialog.showModal();
     zukanBody.scrollTop = 0;
-});
+}
+
+zukanOpenBtn.addEventListener('click', () => openZukan('kanji'));
+wordZukanOpenBtn.addEventListener('click', () => openZukan('words'));
+zukanTabs.forEach(tab => tab.addEventListener('click', () => {
+    zukanKind = tab.dataset.zukan;
+    renderZukan();
+    zukanBody.scrollTop = 0;
+}));
 document.getElementById('zukan-close').addEventListener('click', () => zukanDialog.close());
 // Tapping the dark backdrop also closes it
 zukanDialog.addEventListener('click', event => {
@@ -391,6 +480,14 @@ function getFilteredKanjiList() {
     return kanjiDatabase.filter(item => item.grade === targetGrade);
 }
 
+function getFilteredJukugoList() {
+    if (selectedGrade === 'all') {
+        return [...jukugoDatabase];
+    }
+    const targetGrade = parseInt(selectedGrade, 10);
+    return jukugoDatabase.filter(item => item.grade === targetGrade);
+}
+
 // --- Quiz Controller ---
 // reviewItems: the questions missed last time, asked again with the same readings
 function startQuiz(mode, reviewItems) {
@@ -402,10 +499,19 @@ function startQuiz(mode, reviewItems) {
     maxCombo = 0;
     missedItems = [];
     correctKanji = [];
+    correctWords = [];
+    const isKumitate = mode === 'kumitate';
+    quizScreen.classList.toggle('is-kumitate', isKumitate);
+    optionsArea.hidden = isKumitate;
+    buildArea.hidden = !isKumitate;
 
     if (reviewItems) {
         currentQuiz = shuffleArray([...reviewItems]);
         quizItemId = null;
+    } else if (isKumitate) {
+        const shuffledPool = shuffleArray(getFilteredJukugoList());
+        currentQuiz = shuffledPool.slice(0, Math.min(selectedQuestionCount, shuffledPool.length));
+        quizItemId = Records.itemId(mode, selectedGrade, selectedQuestionCount);
     } else {
         const availablePool = getFilteredKanjiList();
         const shuffledPool = shuffleArray([...availablePool]);
@@ -439,6 +545,14 @@ function displayQuestion() {
 
     const currentKanji = currentQuiz[currentQuestionIndex];
     gradeBadge.textContent = `${currentKanji.grade}年生`;
+
+    if (quizMode === 'kumitate') {
+        questionEl.textContent = currentKanji.reading;
+        questionEl.classList.remove('is-kanji');
+        startBuild(currentKanji);
+        startTimer(KUMITATE_TIME_LIMIT[[...currentKanji.word].length] || TIME_LIMIT);
+        return;
+    }
 
     let questionText, correctAnswer;
     if (quizMode === 'k-to-y') {
@@ -494,8 +608,106 @@ function generateOptions(currentKanji, correctAnswer) {
     return shuffleArray(options);
 }
 
-function startTimer() {
-    timer = TIME_LIMIT;
+// --- 熟語くみたて ---
+// The tiles: the kanji of the word, then look-alikes that share a reading with them,
+// then any kanji of the same grade or below. Kanji that could build another word with
+// the same reading are left out, so only one order of the tiles is right.
+function makeTiles(item) {
+    const chars = [...item.word];
+    const used = new Set(chars);
+    (wordsByReading.get(item.reading) || []).forEach(word => [...word].forEach(k => used.add(k)));
+    const fits = k => !used.has(k) && (kanjiGrade.get(k) || 7) <= item.grade;
+    const similar = shuffleArray([...new Set(chars.flatMap(k => (kanjiReadings.get(k) || []).flatMap(r => kanjiByReading.get(r) || [])))].filter(fits));
+    const others = shuffleArray(kanjiDatabase.map(entry => entry.kanji).filter(fits));
+    const extra = [...new Set([...similar.slice(0, 3), ...others])].slice(0, TILE_COUNT - chars.length);
+    return shuffleArray([...chars, ...extra]).map(char => ({ char, used: false }));
+}
+
+function startBuild(item) {
+    build = { tiles: makeTiles(item), slots: new Array([...item.word].length).fill(null), locked: false };
+    renderBuild();
+}
+
+function renderBuild() {
+    const next = build.slots.indexOf(null);
+    buildSlots.replaceChildren(...build.slots.map((tileIndex, i) => {
+        const slot = el('button', i === next && !build.locked ? 'slot is-next' : 'slot', tileIndex === null ? '' : build.tiles[tileIndex].char);
+        slot.type = 'button';
+        slot.disabled = build.locked || tileIndex === null;
+        slot.setAttribute('aria-label', tileIndex === null ? `${i + 1}字目 (まだ)` : `${i + 1}字目 ${build.tiles[tileIndex].char} (おすと もどす)`);
+        slot.addEventListener('click', () => {
+            // Put the tile back, so a wrong pick can be fixed before the last square
+            build.tiles[tileIndex].used = false;
+            build.slots[i] = null;
+            renderBuild();
+        });
+        return slot;
+    }));
+    buildTiles.replaceChildren(...build.tiles.map((tile, i) => {
+        const button = el('button', tile.used ? 'tile is-used' : 'tile', tile.char);
+        button.type = 'button';
+        button.disabled = build.locked || tile.used;
+        button.addEventListener('click', () => placeTile(i));
+        return button;
+    }));
+}
+
+function placeTile(tileIndex) {
+    const next = build.slots.indexOf(null);
+    if (build.locked || next === -1 || build.tiles[tileIndex].used) return;
+    build.tiles[tileIndex].used = true;
+    build.slots[next] = tileIndex;
+    renderBuild();
+    if (!build.slots.includes(null)) checkBuild();
+}
+
+function checkBuild() {
+    const item = currentQuiz[currentQuestionIndex];
+    const built = build.slots.map(i => build.tiles[i].char).join('');
+    const isCorrect = built === item.word || (wordsByReading.get(item.reading) || []).includes(built);
+    finishBuild(item, isCorrect ? built : null, isCorrect ? '正解！' : '不正解...');
+}
+
+// Shows the right word in the squares and moves on. built is the word made, or null.
+function finishBuild(item, built, message) {
+    clearInterval(timerInterval);
+    build.locked = true;
+    if (!built) {
+        // Fill the squares with the right answer, so it can be seen
+        const taken = [];
+        build.slots = [...item.word].map(char => {
+            const i = build.tiles.findIndex((tile, j) => tile.char === char && !taken.includes(j));
+            taken.push(i);
+            return i;
+        });
+        build.tiles.forEach((tile, j) => { tile.used = taken.includes(j); });
+    }
+    renderBuild();
+    buildSlots.classList.add(built ? 'correct' : 'incorrect');
+    feedbackEl.textContent = message;
+    if (built) {
+        score++;
+        combo++;
+        maxCombo = Math.max(maxCombo, combo);
+        correctWords.push(built);
+        feedbackEl.classList.add('correct');
+        if (combo >= 2) {
+            feedbackEl.append(el('span', 'combo', `${combo}れんぞく！`));
+            feedbackEl.classList.add('is-combo');
+        }
+        playSound(true, combo);
+    } else {
+        combo = 0;
+        missedItems.push(item);
+        feedbackEl.classList.add('incorrect');
+        playSound(false);
+    }
+    showAnswerNote(built ? { ...item, word: built } : item);
+    goToNextQuestion();
+}
+
+function startTimer(limit = TIME_LIMIT) {
+    timer = limit;
     timerDisplay.textContent = timer;
     timerDisplay.classList.remove('warning');
 
@@ -520,6 +732,7 @@ function resetQuestionState() {
     feedbackEl.className = '';
     answerNoteEl.replaceChildren();
     timerDisplay.classList.remove('warning');
+    buildSlots.className = 'build-slots';
 
     optionButtons.forEach(button => {
         button.disabled = false;
@@ -569,8 +782,15 @@ function checkAnswer(selectedAnswer, correctAnswer) {
     goToNextQuestion();
 }
 
-// Shows the kanji with all its readings, so every question also teaches something
+// Shows the kanji with all its readings, so every question also teaches something.
+// For a 熟語, the word with its reading, and the readings of each of its kanji.
 function showAnswerNote(item) {
+    if (item.word) {
+        const parts = el('span', 'answer-parts');
+        parts.append(...[...new Set(item.word)].map(k => el('span', '', `${k} ${(kanjiReadings.get(k) || []).slice(0, 3).join('・')}`)));
+        answerNoteEl.replaceChildren(el('span', 'answer-kanji', item.word), ` ${item.reading}`, parts);
+        return;
+    }
     const readings = item.readings.map(reading =>
         reading === item.targetReading ? el('b', '', reading) : document.createTextNode(reading));
     const parts = [el('span', 'answer-kanji', item.kanji), ' '];
@@ -590,6 +810,10 @@ function goToNextQuestion() {
 }
 
 function handleTimeout() {
+    if (quizMode === 'kumitate') {
+        finishBuild(currentQuiz[currentQuestionIndex], null, '時間切れ！');
+        return;
+    }
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
@@ -658,7 +882,8 @@ function endQuiz() {
     rankBadge.className = `rank-badge ${rankClass}`;
     resultHanamaru.toggleAttribute('hidden', percentage < 80);
 
-    const { previous, isBest, newlyCollected } = Records.recordResult(quizItemId, score, total, correctKanji);
+    const { previous, isBest, newlyCollected, newlyCollectedWords } =
+        Records.recordResult(quizItemId, score, total, correctKanji, correctWords);
     // Nothing to compare with on the first play, nor on a review
     bestNoteEl.hidden = !previous;
     bestNoteEl.classList.toggle('is-new', isBest);
@@ -668,6 +893,7 @@ function endQuiz() {
     comboNoteEl.textContent = `さいこう ${maxCombo}れんぞく 正解！`;
 
     renderNewKanji(newlyCollected);
+    renderNewWords(newlyCollectedWords);
     renderMissed();
 
     playResultSound(percentage);
@@ -682,14 +908,26 @@ function renderNewKanji(list) {
     }));
 }
 
+function renderNewWords(list) {
+    newWordsSection.hidden = list.length === 0;
+    newWordsList.replaceChildren(...list.map((word, i) => {
+        const chip = el('span', 'new-kanji-chip new-word-chip', word);
+        chip.style.animationDelay = `${0.4 + i * 0.08}s`;
+        return chip;
+    }));
+}
+
 function renderMissed() {
-    // The same kanji can be missed only once per quiz, but keep it tidy anyway
-    const unique = [...new Map(missedItems.map(item => [item.kanji, item])).values()];
+    // The same question can be missed only once per quiz, but keep it tidy anyway
+    const unique = [...new Map(missedItems.map(item => [item.word || item.kanji, item])).values()];
+    const what = quizMode === 'kumitate' ? '熟語' : '漢字';
+    missedTitle.textContent = `まちがえた ${what}`;
+    reviewBtn.textContent = `まちがえた ${what}だけ もう一度`;
     missedSection.hidden = unique.length === 0;
     reviewBtn.hidden = unique.length === 0;
     missedList.replaceChildren(...unique.map(item => {
-        const li = el('li', 'missed-item');
-        li.append(el('span', 'missed-kanji', item.kanji), el('span', 'missed-readings', readingsText(item)));
+        const li = el('li', item.word ? 'missed-item is-word' : 'missed-item');
+        li.append(el('span', 'missed-kanji', item.word || item.kanji), el('span', 'missed-readings', item.word ? item.reading : readingsText(item)));
         return li;
     }));
 }
@@ -697,6 +935,7 @@ function renderMissed() {
 // --- Global Handlers ---
 startKtoYBtn.addEventListener('click', () => startQuiz('k-to-y'));
 startYtoKBtn.addEventListener('click', () => startQuiz('y-to-k'));
+startKumitateBtn.addEventListener('click', () => startQuiz('kumitate'));
 reviewBtn.addEventListener('click', () => startQuiz(quizMode, missedItems));
 retryBtn.addEventListener('click', () => {
     renderHome();
