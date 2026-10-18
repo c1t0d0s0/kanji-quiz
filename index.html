@@ -64,12 +64,12 @@
                 <button type="button" id="zukan-open" class="points zukan-open zukan-open-kanji">
                     <span class="points-label">漢字ずかん <span id="zukan-total"></span></span>
                     <span class="zukan-row">
-                        <span class="zukan-count-kind">読み</span>
+                        <span class="zukan-count-kind">漢字から読み</span>
                         <b id="zukan-count-yomi" class="points-num"></b>
                         <span class="zukan-meter" aria-hidden="true"><span id="zukan-meter-bar"></span></span>
                     </span>
                     <span class="zukan-row">
-                        <span class="zukan-count-kind">書き</span>
+                        <span class="zukan-count-kind">読みから漢字</span>
                         <b id="zukan-count-kaki" class="points-num"></b>
                         <span class="zukan-meter is-kaki" aria-hidden="true"><span id="zukan-meter-bar-kaki"></span></span>
                     </span>
@@ -152,8 +152,8 @@
                     <li>1問 10びょうの あいだに、4つの 中から 答えを えらびます。</li>
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
                     <li>「熟語くみたて」では、読みに 合う 漢字を じゅんばんに おして 熟語を 作ります。まちがえた 字は、マスを おすと もどせます。</li>
-                    <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」で あつめる「読み」と、「読みから漢字」で あつめる「書き」に わかれています。ぜんぶ あつめよう！</li>
-                    <li>学年の 漢字が 読みも 書きも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
+                    <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」と「読みから漢字」で べつべつに あつまります。ぜんぶ あつめよう！</li>
+                    <li>学年の 漢字が「漢字から読み」でも「読みから漢字」でも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
                 </ul>
             </details>
@@ -251,8 +251,8 @@
             <button type="button" id="zukan-close" class="btn">とじる</button>
         </header>
         <div class="seg zukan-tabs" role="group" aria-label="ずかんの しゅるい">
-            <button type="button" class="seg-option" data-zukan="yomi" aria-pressed="true">読み</button>
-            <button type="button" class="seg-option" data-zukan="kaki" aria-pressed="false">書き</button>
+            <button type="button" class="seg-option" data-zukan="yomi" aria-pressed="true">漢字から読み</button>
+            <button type="button" class="seg-option" data-zukan="kaki" aria-pressed="false">読みから漢字</button>
             <button type="button" class="seg-option" data-zukan="words" aria-pressed="false">熟語</button>
         </div>
         <p id="zukan-detail" class="zukan-detail" aria-live="polite">あつめた 漢字を おすと、読みが 見られるよ。</p>

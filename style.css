@@ -1387,12 +1387,16 @@ button {
 }
 
 .zukan-tabs {
-    grid-template-columns: repeat(3, 1fr);
+    /* the two kanji tabs have long names; 熟語 is short */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.6fr);
     margin: 0.75rem 1.25rem 0;
 }
 
 .zukan-tabs .seg-option {
     min-height: 2.25rem;
+    padding-left: 0.15rem;
+    padding-right: 0.15rem;
+    font-size: clamp(0.75rem, 3.6vw, 0.9375rem);
 }
 
 .new-word-chip {

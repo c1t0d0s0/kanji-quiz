@@ -167,8 +167,8 @@ function renderRecords() {
 
 // The two 漢字ずかん: 読み is collected in 漢字から読み, 書き in 読みから漢字
 const KANJI_KINDS = {
-    yomi: { label: '読み', quiz: '漢字から読み' },
-    kaki: { label: '書き', quiz: '読みから漢字' }
+    yomi: { label: '漢字から読み' },
+    kaki: { label: '読みから漢字' }
 };
 
 // --- Rewards: accessories for the lynx, and はなまる in the ずかん ---
@@ -202,7 +202,7 @@ function earnedRewards() {
 
 function rewardHint(reward) {
     return reward.kind === 'kanji'
-        ? `${reward.grade}年生の 漢字を 読みも 書きも ぜんぶ あつめる`
+        ? `${reward.grade}年生の 漢字を「漢字から読み」でも「読みから漢字」でも ぜんぶ あつめる`
         : `${reward.grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめる`;
 }
 
@@ -287,8 +287,8 @@ kisekaeDialog.addEventListener('click', event => {
 function renderRewards(before, after) {
     const added = (a, b) => [...b].filter(x => !a.has(x));
     const lines = [
-        ...added(before.yomiDone, after.yomiDone).map(grade => `${grade}年生の 漢字（読み）が ぜんぶ そろった！ はなまる！`),
-        ...added(before.kakiDone, after.kakiDone).map(grade => `${grade}年生の 漢字（書き）が ぜんぶ そろった！ はなまる！`),
+        ...added(before.yomiDone, after.yomiDone).map(grade => `${grade}年生の 漢字（漢字から読み）が ぜんぶ そろった！ はなまる！`),
+        ...added(before.kakiDone, after.kakiDone).map(grade => `${grade}年生の 漢字（読みから漢字）が ぜんぶ そろった！ はなまる！`),
         ...added(before.words100, after.words100).map(grade => `${grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめた！`),
         ...added(before.wordsDone, after.wordsDone).map(grade => `${grade}年生の 熟語が ぜんぶ そろった！ はなまる！`)
     ];
@@ -316,7 +316,7 @@ function renderZukanCount() {
     zukanCountKaki.textContent = kaki;
     zukanMeterBar.style.width = `${(yomi / kanjiDatabase.length) * 100}%`;
     zukanMeterBarKaki.style.width = `${(kaki / kanjiDatabase.length) * 100}%`;
-    zukanOpenBtn.setAttribute('aria-label', `漢字ずかんを ひらく (${kanjiDatabase.length}字中 読み ${yomi}字・書き ${kaki}字 あつめた)`);
+    zukanOpenBtn.setAttribute('aria-label', `漢字ずかんを ひらく (${kanjiDatabase.length}字中 漢字から読み ${yomi}字・読みから漢字 ${kaki}字 あつめた)`);
 
     const words = Records.getCollectedWords();
     const gotWords = jukugoDatabase.filter(item => words.has(item.word)).length;
@@ -342,9 +342,9 @@ function renderZukan() {
     const collected = Records.getCollected(zukanKind);
     const got = countCollected(collected, kanjiDatabase);
     zukanSummary.textContent = got === kanjiDatabase.length
-        ? `${kind.label}の ${got}字 ぜんぶ あつめた！ すごい！`
-        : `${kind.label}: ${kanjiDatabase.length}字中 ${got}字 あつめたよ`;
-    zukanDetail.textContent = `「${kind.quiz}」で 正解した 漢字が あつまるよ。おすと、読みが 見られるよ。`;
+        ? `${got}字 ぜんぶ あつめた！ すごい！`
+        : `${kanjiDatabase.length}字中 ${got}字 あつめたよ`;
+    zukanDetail.textContent = `「${kind.label}」で 正解した 漢字が あつまるよ。おすと、読みが 見られるよ。`;
 
     const sections = GRADES.map(grade => {
         const list = kanjiDatabase.filter(item => item.grade === grade);
@@ -370,7 +370,7 @@ function renderZukan() {
                 // Shown faintly, so children can see what is left to collect
                 cell.setAttribute('aria-label', `${item.kanji} (まだ あつめていない)`);
                 cell.addEventListener('click', () => {
-                    zukanDetail.textContent = `「${item.kanji}」は まだ あつめていないよ。「${kind.quiz}」で 正解すると あつまるよ！`;
+                    zukanDetail.textContent = `「${item.kanji}」は まだ あつめていないよ。「${kind.label}」で 正解すると あつまるよ！`;
                 });
             }
             grid.append(cell);
