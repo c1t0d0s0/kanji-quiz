@@ -247,6 +247,8 @@ function renderKisekae(message) {
             Records.setSettings({ outfit });
             renderKisekae(isWorn ? `${item.name}を はずしたよ。` : `${item.name}を つけたよ！`);
             renderLynx();
+            // The result screen behind the dialog shows the lynx too
+            if (!rewardSection.hidden) rewardLynx.innerHTML = Lynx.svg(currentOutfit());
         });
         return button;
     }));
