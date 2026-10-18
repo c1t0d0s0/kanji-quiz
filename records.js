@@ -21,7 +21,7 @@ const Records = (() => {
             activeDays: [],
             collected: [],
             words: [],
-            settings: { grade: null, count: null, at: 0 },
+            settings: { grade: null, count: null, outfit: null, at: 0 },
             progress: {}
         };
     }
@@ -41,6 +41,8 @@ const Records = (() => {
         return {
             grade: GRADES.includes(s.grade) ? s.grade : null,
             count: COUNTS.includes(s.count) ? s.count : null,
+            // What the lynx wears (item ids from lynx.js). null until something was chosen
+            outfit: Array.isArray(s.outfit) ? [...new Set(s.outfit.filter(id => typeof id === 'string' && /^[a-z]{1,20}$/.test(id)))].slice(0, 8) : null,
             at: typeof s.at === 'number' ? s.at : 0
         };
     }
@@ -85,6 +87,7 @@ const Records = (() => {
         return {
             grade: newer.grade ?? older.grade,
             count: newer.count ?? older.count,
+            outfit: newer.outfit ?? older.outfit,
             at: Math.max(a.at, b.at)
         };
     }

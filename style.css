@@ -203,7 +203,12 @@ button {
 
 .lynx {
     flex: none;
-    width: clamp(3.25rem, 16vw, 6.5rem);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    /* a little taller than the old drawing, to leave room for hats */
+    width: clamp(3.75rem, 19vw, 7.5rem);
 }
 
 .lynx svg {
@@ -627,6 +632,8 @@ button {
     flex: 1 1 0;
     display: grid;
     place-items: center;
+    align-content: center;
+    gap: 0.6rem;
     min-height: 5rem;
     max-height: 20rem;
 }
@@ -1000,6 +1007,7 @@ button {
 
 .result-score {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem 1.5rem;
@@ -1135,6 +1143,10 @@ button {
     gap: 0 0.6rem;
 }
 
+.missed-item .missed-meaning {
+    flex-basis: 100%;
+}
+
 .missed-readings {
     min-width: 0;
     font-size: 0.875rem;
@@ -1194,7 +1206,38 @@ button {
     font-size: 0.9375rem;
 }
 
+/* The meaning of a 熟語: a hint under its reading */
+.question-hint {
+    max-width: 100%;
+    padding: 0 0.5rem;
+    color: var(--muted);
+    font-size: clamp(0.875rem, 4vw, 1.0625rem);
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.question-hint::before {
+    content: 'いみ';
+    display: inline-block;
+    margin-right: 0.5em;
+    padding: 0 0.5em;
+    border-radius: 999px;
+    background: var(--mark);
+    color: var(--ink);
+    font-size: 0.8125em;
+}
+
+.zukan-detail-meaning,
+.missed-meaning {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
 .zukan-detail {
+    flex: none;
     margin: 0.75rem 1.25rem 0;
     padding: 0.4rem 0.75rem;
     min-height: 2.75rem;
@@ -1319,7 +1362,142 @@ button {
     outline-color: var(--red);
 }
 
+/* --- Rewards: the lynx's wardrobe, the result announcement, はなまる in the ずかん --- */
+.kisekae-lynx {
+    width: clamp(6rem, 30vw, 8.5rem);
+    margin: 0.5rem auto 0;
+}
+
+.kisekae-lynx svg,
+.reward-lynx svg,
+.kisekae-item svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.kisekae-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(5.25rem, 1fr));
+    gap: 0.6rem;
+    padding: 1rem 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+.kisekae-item {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.2rem;
+    padding: 0.4rem 0.25rem 0.35rem;
+    border: 0;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.kisekae-item svg {
+    width: 3.75rem;
+}
+
+.kisekae-item.is-earned {
+    box-shadow: 0 0 0 1px var(--rule);
+    color: var(--ink);
+}
+
+/* Being worn now */
+.kisekae-item.is-worn {
+    background: var(--mark-soft);
+    box-shadow: 0 0 0 2px var(--ink);
+}
+
+.kisekae-item:focus-visible {
+    outline-offset: -4px;
+    outline-color: var(--red);
+}
+
+.kisekae-lock {
+    display: grid;
+    place-items: center;
+    width: 3.75rem;
+    aspect-ratio: 124 / 148;
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 2rem;
+    color: var(--rule);
+}
+
+.kisekae-name {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.reward {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--mark-soft);
+    box-shadow: 0 0 0 1px var(--rule);
+    animation: pop 0.45s ease-out 0.3s both;
+}
+
+.reward-lynx {
+    flex: none;
+    width: 5.5rem;
+}
+
+.reward-text {
+    display: grid;
+    justify-items: start;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.reward h2 {
+    color: var(--red);
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.375rem;
+    line-height: 1.3;
+}
+
+.reward-list {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+/* はなまる next to a grade whose kanji or 熟語 are all collected */
+.hanamaru.hanamaru-grade {
+    align-self: center;
+    width: 2rem;
+    height: 2rem;
+    stroke-width: 5;
+}
+
+.hanamaru-grade polyline {
+    stroke-dasharray: 1;
+    animation: draw 1.2s ease-out 0.1s both;
+}
+
+.zukan-reward-hint {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.zukan-reward-hint.is-got {
+    color: var(--red);
+    font-weight: 700;
+}
+
 @media (prefers-reduced-motion: reduce) {
+    .reward,
+    .hanamaru-grade polyline,
     #timer.warning,
     .result-card .hanamaru polyline,
     .rank-badge,

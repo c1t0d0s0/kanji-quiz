@@ -52,10 +52,8 @@
                     <h1 class="brand">漢字クイズ</h1>
                     <p class="lead">1〜6年生の 漢字を、4たくの クイズで おぼえよう。</p>
                 </div>
-                <!-- The lynx from Wordlynx (same drawing as lynxFace() in its src/ui/lynx.ts) -->
-                <div class="lynx">
-                    <svg viewBox="0 0 120 110" role="img" aria-label="ヤマネコのキャラクター"><g stroke="#1c2a4a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><path class="lynx-fur" d="M27 52C21 38 21 24 25 13C36 19 47 27 53 36ZM93 52C99 38 99 24 95 13C84 19 73 27 67 36Z"/><path class="lynx-fur" d="M60 28C36 28 19 44 19 67C19 73 15 79 8 85C18 86 25 89 31 95C39 103 50 106 60 106C70 106 81 103 89 95C95 89 102 86 112 85C105 79 101 73 101 67C101 44 84 28 60 28Z"/></g><path class="lynx-pink" d="M30 43C28 35 28 28 30 22C36 26 41 31 45 36ZM90 43C92 35 92 28 90 22C84 26 79 31 75 36Z"/><path class="lynx-tuft" d="M24 15C22 10 20 6 19 1C24 4 28 8 31 12ZM96 15C98 10 100 6 101 1C96 4 92 8 89 12Z"/><ellipse class="lynx-light" cx="60" cy="86" rx="15" ry="11"/><ellipse class="lynx-pink" cx="28" cy="82" rx="6.5" ry="4" opacity="0.75"/><ellipse class="lynx-pink" cx="92" cy="82" rx="6.5" ry="4" opacity="0.75"/><path fill="none" stroke="#1c2a4a" stroke-width="2.5" stroke-linecap="round" d="M53 39L54 45M60 37V44M67 39L66 45"/><ellipse cx="42" cy="69" rx="7.5" ry="8.5" fill="#1c2a4a"/><circle cx="44.6" cy="65.4" r="3.1" fill="#fff"/><circle cx="39.4" cy="72.6" r="1.5" fill="#fff"/><ellipse cx="78" cy="69" rx="7.5" ry="8.5" fill="#1c2a4a"/><circle cx="80.6" cy="65.4" r="3.1" fill="#fff"/><circle cx="75.4" cy="72.6" r="1.5" fill="#fff"/><path class="lynx-tongue" d="M56.8 88.5Q60 95.5 63.2 88.5Z"/><path class="lynx-nose" d="M56.2 79.4Q60 77.6 63.8 79.4Q62.4 83.4 60 84Q57.6 83.4 56.2 79.4Z"/><path fill="none" stroke="#1c2a4a" stroke-width="2" stroke-linecap="round" d="M60 84V86M60 86C58 90 53 90 51.5 87M60 86C62 90 67 90 68.5 87"/><path fill="none" stroke="#1c2a4a" stroke-width="1.4" stroke-linecap="round" d="M45 87L33 89M45.5 90.5L35 96M75 87L87 89M74.5 90.5L85 96"/></svg>
-                </div>
+                <!-- The lynx from Wordlynx (lynx.js), wearing the accessories won from the ずかん -->
+                <button type="button" id="lynx-btn" class="lynx" aria-label="ヤマネコの きせかえを ひらく"></button>
             </header>
 
             <div class="stats">
@@ -72,6 +70,11 @@
                     <span class="points-label">熟語ずかん</span>
                     <b id="word-zukan-count" class="points-num"></b>
                     <span class="zukan-meter" aria-hidden="true"><span id="word-zukan-meter-bar"></span></span>
+                </button>
+                <button type="button" id="kisekae-open" class="points zukan-open">
+                    <span class="points-label">ヤマネコの きせかえ</span>
+                    <b id="kisekae-count" class="points-num"></b>
+                    <span class="zukan-meter" aria-hidden="true"><span id="kisekae-meter-bar"></span></span>
                 </button>
             </div>
 
@@ -142,6 +145,7 @@
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
                     <li>「熟語くみたて」では、読みに 合う 漢字を じゅんばんに おして 熟語を 作ります。まちがえた 字は、マスを おすと もどせます。</li>
                     <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。ぜんぶ あつめよう！</li>
+                    <li>学年の 漢字が ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
                 </ul>
             </details>
@@ -164,6 +168,8 @@
 
         <div id="question-area">
             <p id="question"></p>
+            <!-- 熟語くみたて: the meaning of the word, as a hint -->
+            <p id="question-hint" class="question-hint" hidden></p>
         </div>
 
         <!-- 熟語くみたて: tap the tiles in order to fill the squares -->
@@ -201,6 +207,14 @@
             <p id="message">おめでとう！パーフェクト！</p>
             <p id="best-note" class="best-note" hidden></p>
             <p id="combo-note" class="combo-note" hidden></p>
+            <section id="reward" class="reward" hidden>
+                <div id="reward-lynx" class="reward-lynx"></div>
+                <div class="reward-text">
+                    <h2>ごほうび ゲット！</h2>
+                    <ul id="reward-list" class="reward-list"></ul>
+                    <button type="button" id="reward-kisekae" class="btn">きせかえる</button>
+                </div>
+            </section>
             <section id="new-kanji" class="result-section" hidden>
                 <h2>ずかんに くわわった 漢字</h2>
                 <div id="new-kanji-list" class="new-kanji-list"></div>
@@ -236,8 +250,22 @@
         <div id="zukan-body" class="zukan-body"></div>
     </dialog>
 
+    <dialog id="kisekae" class="zukan kisekae" aria-labelledby="kisekae-title">
+        <header class="zukan-head">
+            <div>
+                <h1 id="kisekae-title">ヤマネコの きせかえ</h1>
+                <p id="kisekae-summary" class="zukan-summary"></p>
+            </div>
+            <button type="button" id="kisekae-close" class="btn">とじる</button>
+        </header>
+        <div id="kisekae-lynx" class="kisekae-lynx"></div>
+        <p id="kisekae-detail" class="zukan-detail" aria-live="polite"></p>
+        <div id="kisekae-items" class="kisekae-items"></div>
+    </dialog>
+
     <script src="kanji-data.js"></script>
     <script src="jukugo-data.js"></script>
+    <script src="lynx.js"></script>
     <script src="records.js"></script>
     <script src="cloud.js"></script>
     <script src="script.js"></script>

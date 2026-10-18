@@ -18,6 +18,7 @@ const questionCounter = document.getElementById('question-counter');
 const gradeBadge = document.getElementById('grade-badge');
 const timerDisplay = document.getElementById('timer');
 const questionEl = document.getElementById('question');
+const questionHint = document.getElementById('question-hint');
 const optionButtons = Array.from(document.getElementsByClassName('option'));
 const optionsArea = document.getElementById('options-area');
 const buildArea = document.getElementById('build-area');
@@ -50,6 +51,19 @@ const bestEls = {
 };
 const accountEl = document.getElementById('account');
 const accountBody = document.getElementById('account-body');
+
+const lynxBtn = document.getElementById('lynx-btn');
+const kisekaeOpenBtn = document.getElementById('kisekae-open');
+const kisekaeCount = document.getElementById('kisekae-count');
+const kisekaeMeterBar = document.getElementById('kisekae-meter-bar');
+const kisekaeDialog = document.getElementById('kisekae');
+const kisekaeSummary = document.getElementById('kisekae-summary');
+const kisekaeLynx = document.getElementById('kisekae-lynx');
+const kisekaeDetail = document.getElementById('kisekae-detail');
+const kisekaeItems = document.getElementById('kisekae-items');
+const rewardSection = document.getElementById('reward');
+const rewardLynx = document.getElementById('reward-lynx');
+const rewardList = document.getElementById('reward-list');
 
 const zukanOpenBtn = document.getElementById('zukan-open');
 const zukanCount = document.getElementById('zukan-count');
@@ -144,6 +158,130 @@ function renderRecords() {
     practiceDays.hidden = days === 0;
     practiceDaysNum.textContent = `${days}日`;
     renderZukanCount();
+    renderLynx();
+}
+
+// --- Rewards: accessories for the lynx, and はなまる in the ずかん ---
+// A grade's kanji all collected, or 100 of a grade's 熟語 collected, gives an accessory.
+// Rewards are worked out from the collected kanji and words every time, so only what
+// the lynx wears is saved (in the settings, which are synced).
+const WORD_REWARD_COUNT = 100;
+const REWARDS = GRADES.flatMap((grade, i) => [
+    { item: Lynx.ITEMS[i * 2].id, kind: 'kanji', grade },
+    { item: Lynx.ITEMS[i * 2 + 1].id, kind: 'words', grade }
+]);
+const KANJI_BY_GRADE = new Map(GRADES.map(grade => [grade, kanjiDatabase.filter(item => item.grade === grade)]));
+const WORDS_BY_GRADE = new Map(GRADES.map(grade => [grade, jukugoDatabase.filter(item => item.grade === grade)]));
+
+function earnedRewards() {
+    const kanji = Records.getCollected();
+    const words = Records.getCollectedWords();
+    const kanjiDone = new Set(GRADES.filter(grade => KANJI_BY_GRADE.get(grade).every(item => kanji.has(item.kanji))));
+    const wordCount = grade => WORDS_BY_GRADE.get(grade).filter(item => words.has(item.word)).length;
+    const words100 = new Set(GRADES.filter(grade => wordCount(grade) >= WORD_REWARD_COUNT));
+    const wordsDone = new Set(GRADES.filter(grade => wordCount(grade) === WORDS_BY_GRADE.get(grade).length));
+    const items = new Set(REWARDS.filter(r => (r.kind === 'kanji' ? kanjiDone : words100).has(r.grade)).map(r => r.item));
+    return { items, kanjiDone, words100, wordsDone };
+}
+
+function rewardHint(reward) {
+    return reward.kind === 'kanji'
+        ? `${reward.grade}年生の 漢字を ぜんぶ あつめる`
+        : `${reward.grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめる`;
+}
+
+// What the lynx wears: only items that were won
+function currentOutfit(earned = earnedRewards().items) {
+    return Lynx.normalizeOutfit(Records.getSettings().outfit).filter(id => earned.has(id));
+}
+
+function renderLynx() {
+    const earned = earnedRewards().items;
+    lynxBtn.innerHTML = Lynx.svg(currentOutfit(earned));
+    kisekaeCount.textContent = `${earned.size} / ${REWARDS.length}`;
+    kisekaeMeterBar.style.width = `${(earned.size / REWARDS.length) * 100}%`;
+    kisekaeOpenBtn.setAttribute('aria-label', `ヤマネコの きせかえを ひらく (${REWARDS.length}こ中 ${earned.size}こ もらった)`);
+}
+
+function makeHanamaru(className) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('class', `hanamaru ${className}`);
+    svg.setAttribute('aria-hidden', 'true');
+    const line = document.createElementNS(ns, 'polyline');
+    line.setAttribute('points', hanamaruPoints());
+    line.setAttribute('pathLength', '1');
+    svg.append(line);
+    return svg;
+}
+
+function renderKisekae(message) {
+    const earned = earnedRewards().items;
+    const worn = currentOutfit(earned);
+    kisekaeSummary.textContent = `${REWARDS.length}こ中 ${earned.size}こ もらったよ`;
+    kisekaeLynx.innerHTML = Lynx.svg(worn);
+    kisekaeDetail.textContent = message || (earned.size > 0
+        ? 'もらった ものを おすと、つけたり はずしたり できるよ。'
+        : 'ずかんを あつめると、ヤマネコに つける ものが もらえるよ。「？」を おしてみてね。');
+    kisekaeItems.replaceChildren(...REWARDS.map(reward => {
+        const item = Lynx.ITEM.get(reward.item);
+        const has = earned.has(reward.item);
+        const isWorn = worn.includes(reward.item);
+        const button = el('button', `kisekae-item${has ? ' is-earned' : ''}${isWorn ? ' is-worn' : ''}`);
+        button.type = 'button';
+        if (has) {
+            button.innerHTML = Lynx.svg([reward.item], item.name);
+            button.append(el('span', 'kisekae-name', item.name));
+            button.setAttribute('aria-pressed', String(isWorn));
+        } else {
+            button.append(el('span', 'kisekae-lock', '？'), el('span', 'kisekae-name', 'まだ'));
+            button.setAttribute('aria-label', `まだ もらっていない (${rewardHint(reward)}と もらえる)`);
+        }
+        button.addEventListener('click', () => {
+            if (!has) {
+                renderKisekae(`${rewardHint(reward)}と もらえるよ。`);
+                return;
+            }
+            const outfit = isWorn ? worn.filter(id => id !== reward.item) : Lynx.wear(worn, reward.item);
+            Records.setSettings({ outfit });
+            renderKisekae(isWorn ? `${item.name}を はずしたよ。` : `${item.name}を つけたよ！`);
+            renderLynx();
+        });
+        return button;
+    }));
+}
+
+function openKisekae() {
+    renderKisekae();
+    kisekaeDialog.showModal();
+}
+
+lynxBtn.addEventListener('click', openKisekae);
+kisekaeOpenBtn.addEventListener('click', openKisekae);
+document.getElementById('reward-kisekae').addEventListener('click', openKisekae);
+document.getElementById('kisekae-close').addEventListener('click', () => kisekaeDialog.close());
+kisekaeDialog.addEventListener('click', event => {
+    if (event.target === kisekaeDialog) kisekaeDialog.close();
+});
+
+// Shows what was won in this quiz, and puts the new accessories on the lynx straight away
+function renderRewards(before, after) {
+    const added = (a, b) => [...b].filter(x => !a.has(x));
+    const lines = [
+        ...added(before.kanjiDone, after.kanjiDone).map(grade => `${grade}年生の 漢字が ぜんぶ そろった！ はなまる！`),
+        ...added(before.words100, after.words100).map(grade => `${grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめた！`),
+        ...added(before.wordsDone, after.wordsDone).map(grade => `${grade}年生の 熟語が ぜんぶ そろった！ はなまる！`)
+    ];
+    const newItems = REWARDS.map(r => r.item).filter(id => after.items.has(id) && !before.items.has(id));
+    if (newItems.length > 0) {
+        Records.setSettings({ outfit: newItems.reduce(Lynx.wear, currentOutfit(after.items)) });
+        newItems.forEach(id => lines.push(`ヤマネコに「${Lynx.ITEM.get(id).name}」を つけたよ。`));
+    }
+    rewardSection.hidden = lines.length === 0;
+    if (lines.length === 0) return;
+    rewardLynx.innerHTML = Lynx.svg(currentOutfit(after.items));
+    rewardList.replaceChildren(...lines.map(line => el('li', '', line)));
 }
 
 // --- 漢字ずかん (kanji collected by answering them correctly) ---
@@ -192,6 +330,9 @@ function renderZukan() {
         const gradeGot = countCollected(collected, list);
         heading.append(el('span', gradeGot === list.length ? 'zukan-grade-count is-complete' : 'zukan-grade-count',
             gradeGot === list.length ? `${gradeGot} / ${list.length} コンプリート！` : `${gradeGot} / ${list.length}`));
+        heading.append(gradeGot === list.length
+            ? makeHanamaru('hanamaru-grade')
+            : el('span', 'zukan-reward-hint', `あと ${list.length - gradeGot}字で ごほうび`));
         const grid = el('div', 'zukan-grid');
         list.forEach(item => {
             const has = collected.has(item.kanji);
@@ -233,6 +374,9 @@ function renderWordZukan() {
         const summary = el('summary', '', `${grade}年生`);
         summary.append(el('span', gradeGot === list.length ? 'zukan-grade-count is-complete' : 'zukan-grade-count',
             gradeGot === list.length ? `${gradeGot} / ${list.length} コンプリート！` : `${gradeGot} / ${list.length}`));
+        if (gradeGot === list.length) summary.append(makeHanamaru('hanamaru-grade'));
+        else if (gradeGot >= WORD_REWARD_COUNT) summary.append(el('span', 'zukan-reward-hint is-got', 'ごほうび ゲット'));
+        else summary.append(el('span', 'zukan-reward-hint', `あと ${WORD_REWARD_COUNT - gradeGot}語で ごほうび`));
         section.append(summary);
         section.addEventListener('toggle', () => {
             if (!section.open || section.querySelector('.zukan-grid')) return;
@@ -243,7 +387,7 @@ function renderWordZukan() {
                 cell.type = 'button';
                 cell.setAttribute('aria-label', has ? `${item.word} (${item.reading})` : `${item.word} (まだ あつめていない)`);
                 cell.addEventListener('click', () => {
-                    if (has) zukanDetail.replaceChildren(el('b', 'zukan-detail-kanji', item.word), ` ${item.reading}`);
+                    if (has) zukanDetail.replaceChildren(el('b', 'zukan-detail-kanji', item.word), ` ${item.reading}`, el('span', 'zukan-detail-meaning', item.meaning));
                     else zukanDetail.textContent = `「${item.word}」は まだ あつめていないよ。熟語くみたてで 正解すると あつまるよ！`;
                 });
                 grid.append(cell);
@@ -546,9 +690,11 @@ function displayQuestion() {
     const currentKanji = currentQuiz[currentQuestionIndex];
     gradeBadge.textContent = `${currentKanji.grade}年生`;
 
+    questionHint.hidden = quizMode !== 'kumitate';
     if (quizMode === 'kumitate') {
         questionEl.textContent = currentKanji.reading;
         questionEl.classList.remove('is-kanji');
+        questionHint.textContent = currentKanji.meaning;
         startBuild(currentKanji);
         startTimer(KUMITATE_TIME_LIMIT[[...currentKanji.word].length] || TIME_LIMIT);
         return;
@@ -882,8 +1028,10 @@ function endQuiz() {
     rankBadge.className = `rank-badge ${rankClass}`;
     resultHanamaru.toggleAttribute('hidden', percentage < 80);
 
+    const rewardsBefore = earnedRewards();
     const { previous, isBest, newlyCollected, newlyCollectedWords } =
         Records.recordResult(quizItemId, score, total, correctKanji, correctWords);
+    renderRewards(rewardsBefore, earnedRewards());
     // Nothing to compare with on the first play, nor on a review
     bestNoteEl.hidden = !previous;
     bestNoteEl.classList.toggle('is-new', isBest);
@@ -928,6 +1076,7 @@ function renderMissed() {
     missedList.replaceChildren(...unique.map(item => {
         const li = el('li', item.word ? 'missed-item is-word' : 'missed-item');
         li.append(el('span', 'missed-kanji', item.word || item.kanji), el('span', 'missed-readings', item.word ? item.reading : readingsText(item)));
+        if (item.word) li.append(el('span', 'missed-meaning', item.meaning));
         return li;
     }));
 }

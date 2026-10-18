@@ -62,7 +62,7 @@ let section = 0;
 for (const line of fs.readFileSync(path.join(root, 'jukugo-data.js'), 'utf8').split('\n')) {
     const heading = line.match(/^#\s*([1-6])年生/);
     if (heading) section = Number(heading[1]);
-    else if (/^\S+\s+[ぁ-ゖー]+(\s+\*)?\s*$/.test(line.trim()) && !line.includes('//')) sections.push(section);
+    else if (/^\S+\s+[ぁ-ゖー]+(\s+\*)?\s*(\|.*)?$/.test(line.trim()) && !line.includes('//')) sections.push(section);
 }
 if (sections.length !== jukugoDatabase.length) errors.push(`could not match sections to words (${sections.length} / ${jukugoDatabase.length})`);
 
@@ -76,6 +76,24 @@ jukugoDatabase.forEach((item, i) => {
     if (seen.has(item.word)) errors.push(`${item.word}: listed twice`);
     seen.add(item.word);
     if (unknown.length === 0 && sections[i] !== item.grade) errors.push(`${item.word}: grade ${item.grade} word written under ${sections[i]}年生`);
+});
+
+// --- Meanings ---
+// The meaning is a hint shown while the word is asked: it must not give the answer away
+// (no kanji of the word, not its reading), and its kanji must be ones already learned.
+const MAX_MEANING = 32;
+jukugoDatabase.forEach(item => {
+    const m = item.meaning;
+    if (!m) {
+        errors.push(`${item.word}: no meaning (write "${item.word} ${item.reading} | いみ")`);
+        return;
+    }
+    if ([...m].length > MAX_MEANING) errors.push(`${item.word}: meaning longer than ${MAX_MEANING}: ${m}`);
+    const own = [...item.word].filter(k => m.includes(k));
+    if (own.length > 0) errors.push(`${item.word}: meaning shows the answer (${own.join('')}): ${m}`);
+    if (item.reading.length >= 2 && m.includes(item.reading)) errors.push(`${item.word}: meaning contains the reading: ${m}`);
+    const later = [...m].filter(k => /[\u4e00-\u9fff]/.test(k) && !((gradeOf.get(k) || 9) <= item.grade));
+    if (later.length > 0) errors.push(`${item.word}: meaning uses kanji not learned by ${item.grade}年生 (${[...new Set(later)].join('')}): ${m}`);
 });
 
 // --- Readings ---
