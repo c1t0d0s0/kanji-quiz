@@ -36,6 +36,7 @@ const resultHanamaru = document.getElementById('result-hanamaru');
 const comboNoteEl = document.getElementById('combo-note');
 const newKanjiSection = document.getElementById('new-kanji');
 const newKanjiList = document.getElementById('new-kanji-list');
+const newKanjiTitle = document.getElementById('new-kanji-title');
 const newWordsSection = document.getElementById('new-words');
 const newWordsList = document.getElementById('new-words-list');
 const missedSection = document.getElementById('missed');
@@ -66,8 +67,11 @@ const rewardLynx = document.getElementById('reward-lynx');
 const rewardList = document.getElementById('reward-list');
 
 const zukanOpenBtn = document.getElementById('zukan-open');
-const zukanCount = document.getElementById('zukan-count');
+const zukanCountYomi = document.getElementById('zukan-count-yomi');
+const zukanCountKaki = document.getElementById('zukan-count-kaki');
+const zukanTotal = document.getElementById('zukan-total');
 const zukanMeterBar = document.getElementById('zukan-meter-bar');
+const zukanMeterBarKaki = document.getElementById('zukan-meter-bar-kaki');
 const wordZukanOpenBtn = document.getElementById('word-zukan-open');
 const wordZukanCount = document.getElementById('word-zukan-count');
 const wordZukanMeterBar = document.getElementById('word-zukan-meter-bar');
@@ -161,8 +165,15 @@ function renderRecords() {
     renderLynx();
 }
 
+// The two 漢字ずかん: 読み is collected in 漢字から読み, 書き in 読みから漢字
+const KANJI_KINDS = {
+    yomi: { label: '読み', quiz: '漢字から読み' },
+    kaki: { label: '書き', quiz: '読みから漢字' }
+};
+
 // --- Rewards: accessories for the lynx, and はなまる in the ずかん ---
-// A grade's kanji all collected, or 100 of a grade's 熟語 collected, gives an accessory.
+// A grade's kanji all collected in both 読み and 書き, or 100 of a grade's 熟語 collected,
+// gives an accessory. Each 漢字ずかん gets its own はなまる for a complete grade.
 // Rewards are worked out from the collected kanji and words every time, so only what
 // the lynx wears is saved (in the settings, which are synced).
 const WORD_REWARD_COUNT = 100;
@@ -174,19 +185,24 @@ const KANJI_BY_GRADE = new Map(GRADES.map(grade => [grade, kanjiDatabase.filter(
 const WORDS_BY_GRADE = new Map(GRADES.map(grade => [grade, jukugoDatabase.filter(item => item.grade === grade)]));
 
 function earnedRewards() {
-    const kanji = Records.getCollected();
+    const doneIn = kind => {
+        const kanji = Records.getCollected(kind);
+        return new Set(GRADES.filter(grade => KANJI_BY_GRADE.get(grade).every(item => kanji.has(item.kanji))));
+    };
+    const yomiDone = doneIn('yomi');
+    const kakiDone = doneIn('kaki');
+    const kanjiDone = new Set([...yomiDone].filter(grade => kakiDone.has(grade)));
     const words = Records.getCollectedWords();
-    const kanjiDone = new Set(GRADES.filter(grade => KANJI_BY_GRADE.get(grade).every(item => kanji.has(item.kanji))));
     const wordCount = grade => WORDS_BY_GRADE.get(grade).filter(item => words.has(item.word)).length;
     const words100 = new Set(GRADES.filter(grade => wordCount(grade) >= WORD_REWARD_COUNT));
     const wordsDone = new Set(GRADES.filter(grade => wordCount(grade) === WORDS_BY_GRADE.get(grade).length));
     const items = new Set(REWARDS.filter(r => (r.kind === 'kanji' ? kanjiDone : words100).has(r.grade)).map(r => r.item));
-    return { items, kanjiDone, words100, wordsDone };
+    return { items, yomiDone, kakiDone, kanjiDone, words100, wordsDone };
 }
 
 function rewardHint(reward) {
     return reward.kind === 'kanji'
-        ? `${reward.grade}年生の 漢字を ぜんぶ あつめる`
+        ? `${reward.grade}年生の 漢字を 読みも 書きも ぜんぶ あつめる`
         : `${reward.grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめる`;
 }
 
@@ -271,7 +287,8 @@ kisekaeDialog.addEventListener('click', event => {
 function renderRewards(before, after) {
     const added = (a, b) => [...b].filter(x => !a.has(x));
     const lines = [
-        ...added(before.kanjiDone, after.kanjiDone).map(grade => `${grade}年生の 漢字が ぜんぶ そろった！ はなまる！`),
+        ...added(before.yomiDone, after.yomiDone).map(grade => `${grade}年生の 漢字（読み）が ぜんぶ そろった！ はなまる！`),
+        ...added(before.kakiDone, after.kakiDone).map(grade => `${grade}年生の 漢字（書き）が ぜんぶ そろった！ はなまる！`),
         ...added(before.words100, after.words100).map(grade => `${grade}年生の 熟語を ${WORD_REWARD_COUNT}こ あつめた！`),
         ...added(before.wordsDone, after.wordsDone).map(grade => `${grade}年生の 熟語が ぜんぶ そろった！ はなまる！`)
     ];
@@ -292,11 +309,14 @@ function countCollected(collected, list) {
 }
 
 function renderZukanCount() {
-    const collected = Records.getCollected();
-    const got = countCollected(collected, kanjiDatabase);
-    zukanCount.textContent = `${got} / ${kanjiDatabase.length}`;
-    zukanMeterBar.style.width = `${(got / kanjiDatabase.length) * 100}%`;
-    zukanOpenBtn.setAttribute('aria-label', `漢字ずかんを ひらく (${kanjiDatabase.length}字中 ${got}字 あつめた)`);
+    const yomi = countCollected(Records.getCollected('yomi'), kanjiDatabase);
+    const kaki = countCollected(Records.getCollected('kaki'), kanjiDatabase);
+    zukanTotal.textContent = `${kanjiDatabase.length}字`;
+    zukanCountYomi.textContent = yomi;
+    zukanCountKaki.textContent = kaki;
+    zukanMeterBar.style.width = `${(yomi / kanjiDatabase.length) * 100}%`;
+    zukanMeterBarKaki.style.width = `${(kaki / kanjiDatabase.length) * 100}%`;
+    zukanOpenBtn.setAttribute('aria-label', `漢字ずかんを ひらく (${kanjiDatabase.length}字中 読み ${yomi}字・書き ${kaki}字 あつめた)`);
 
     const words = Records.getCollectedWords();
     const gotWords = jukugoDatabase.filter(item => words.has(item.word)).length;
@@ -309,21 +329,22 @@ function readingsText(item) {
     return item.readings.join('・');
 }
 
-let zukanKind = 'kanji'; // 'kanji' or 'words'
+let zukanKind = 'yomi'; // 'yomi', 'kaki' or 'words'
 
 function renderZukan() {
-    zukanTitle.textContent = zukanKind === 'kanji' ? '漢字ずかん' : '熟語ずかん';
+    zukanTitle.textContent = zukanKind === 'words' ? '熟語ずかん' : '漢字ずかん';
     zukanTabs.forEach(tab => tab.setAttribute('aria-pressed', String(tab.dataset.zukan === zukanKind)));
     if (zukanKind === 'words') {
         renderWordZukan();
         return;
     }
-    const collected = Records.getCollected();
+    const kind = KANJI_KINDS[zukanKind];
+    const collected = Records.getCollected(zukanKind);
     const got = countCollected(collected, kanjiDatabase);
     zukanSummary.textContent = got === kanjiDatabase.length
-        ? `${got}字 ぜんぶ あつめた！ すごい！`
-        : `${kanjiDatabase.length}字中 ${got}字 あつめたよ`;
-    zukanDetail.textContent = 'あつめた 漢字を おすと、読みが 見られるよ。';
+        ? `${kind.label}の ${got}字 ぜんぶ あつめた！ すごい！`
+        : `${kind.label}: ${kanjiDatabase.length}字中 ${got}字 あつめたよ`;
+    zukanDetail.textContent = `「${kind.quiz}」で 正解した 漢字が あつまるよ。おすと、読みが 見られるよ。`;
 
     const sections = GRADES.map(grade => {
         const list = kanjiDatabase.filter(item => item.grade === grade);
@@ -334,7 +355,7 @@ function renderZukan() {
             gradeGot === list.length ? `${gradeGot} / ${list.length} コンプリート！` : `${gradeGot} / ${list.length}`));
         heading.append(gradeGot === list.length
             ? makeHanamaru('hanamaru-grade')
-            : el('span', 'zukan-reward-hint', `あと ${list.length - gradeGot}字で ごほうび`));
+            : el('span', 'zukan-reward-hint', `あと ${list.length - gradeGot}字で はなまる`));
         const grid = el('div', 'zukan-grid');
         list.forEach(item => {
             const has = collected.has(item.kanji);
@@ -349,7 +370,7 @@ function renderZukan() {
                 // Shown faintly, so children can see what is left to collect
                 cell.setAttribute('aria-label', `${item.kanji} (まだ あつめていない)`);
                 cell.addEventListener('click', () => {
-                    zukanDetail.textContent = `「${item.kanji}」は まだ あつめていないよ。クイズで 正解すると あつまるよ！`;
+                    zukanDetail.textContent = `「${item.kanji}」は まだ あつめていないよ。「${kind.quiz}」で 正解すると あつまるよ！`;
                 });
             }
             grid.append(cell);
@@ -408,7 +429,7 @@ function openZukan(kind) {
     zukanBody.scrollTop = 0;
 }
 
-zukanOpenBtn.addEventListener('click', () => openZukan('kanji'));
+zukanOpenBtn.addEventListener('click', () => openZukan('yomi'));
 wordZukanOpenBtn.addEventListener('click', () => openZukan('words'));
 zukanTabs.forEach(tab => tab.addEventListener('click', () => {
     zukanKind = tab.dataset.zukan;
@@ -1032,7 +1053,7 @@ function endQuiz() {
 
     const rewardsBefore = earnedRewards();
     const { previous, isBest, newlyCollected, newlyCollectedWords } =
-        Records.recordResult(quizItemId, score, total, correctKanji, correctWords);
+        Records.recordResult(quizItemId, score, total, correctKanji, correctWords, quizMode === 'y-to-k' ? 'kaki' : 'yomi');
     renderRewards(rewardsBefore, earnedRewards());
     // Nothing to compare with on the first play, nor on a review
     bestNoteEl.hidden = !previous;
@@ -1042,6 +1063,7 @@ function endQuiz() {
     comboNoteEl.hidden = maxCombo < 3;
     comboNoteEl.textContent = `さいこう ${maxCombo}れんぞく 正解！`;
 
+    newKanjiTitle.textContent = `ずかんに くわわった 漢字（${KANJI_KINDS[quizMode === 'y-to-k' ? 'kaki' : 'yomi'].label}）`;
     renderNewKanji(newlyCollected);
     renderNewWords(newlyCollectedWords);
     renderMissed();

@@ -8,8 +8,13 @@ const Records = (() => {
     const SCHEMA = 1;
     const GRADES = ['all', '1', '2', '3', '4', '5', '6'];
     const COUNTS = [5, 10, 20];
-    // Collected 熟語 share the app document's `completed` list with the kanji, marked by this prefix
+    // The app document's `completed` list holds everything collected, told apart by a prefix:
+    // "yomi:一" (漢字から読み), "kaki:一" (読みから漢字), "jukugo:学校" (熟語).
+    // A kanji without a prefix was collected before 読み and 書き were separated, and counts for both.
     const WORD_PREFIX = 'jukugo:';
+    const KANJI_KINDS = ['yomi', 'kaki'];
+    // The parts of the records kept in the app document (the rest are progress documents)
+    const SUMMARY_FIELDS = ['activeDays', 'yomi', 'kaki', 'words', 'settings'];
 
     let key = GUEST_KEY;
     let listener = null;
@@ -19,7 +24,8 @@ const Records = (() => {
     function empty() {
         return {
             activeDays: [],
-            collected: [],
+            yomi: [],
+            kaki: [],
             words: [],
             settings: { grade: null, count: null, outfit: null, at: 0 },
             progress: {}
@@ -29,7 +35,7 @@ const Records = (() => {
     // --- Validation (stored / remote data may be malformed) ---
     const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
     const normalizeDays = days => [...new Set((Array.isArray(days) ? days : []).filter(isDate))].sort();
-    // Kanji answered correctly at least once (the 漢字ずかん)
+    // Kanji answered correctly at least once (the 漢字ずかん, 読み and 書き)
     const isKanji = v => typeof v === 'string' && v.length > 0 && v.length <= 2;
     const normalizeCollected = list => [...new Set((Array.isArray(list) ? list : []).filter(isKanji))].sort();
     // 熟語 built correctly at least once (the 熟語ずかん)
@@ -57,7 +63,9 @@ const Records = (() => {
         const s = empty();
         if (!raw) return s;
         s.activeDays = normalizeDays(raw.activeDays);
-        s.collected = normalizeCollected(raw.collected);
+        // Older records have one `collected` list, from before 読み and 書き were separated: it goes to both
+        s.yomi = normalizeCollected([...(Array.isArray(raw.yomi) ? raw.yomi : []), ...(Array.isArray(raw.collected) ? raw.collected : [])]);
+        s.kaki = normalizeCollected([...(Array.isArray(raw.kaki) ? raw.kaki : []), ...(Array.isArray(raw.collected) ? raw.collected : [])]);
         s.words = normalizeWords(raw.words);
         s.settings = normalizeSettings(raw.settings);
         for (const [id, value] of Object.entries(raw.progress || {})) {
@@ -99,7 +107,8 @@ const Records = (() => {
         }
         return {
             activeDays: normalizeDays([...a.activeDays, ...b.activeDays]),
-            collected: normalizeCollected([...a.collected, ...b.collected]),
+            yomi: normalizeCollected([...a.yomi, ...b.yomi]),
+            kaki: normalizeCollected([...a.kaki, ...b.kaki]),
             words: normalizeWords([...a.words, ...b.words]),
             settings: mergeSettings(a.settings, b.settings),
             progress
@@ -108,12 +117,12 @@ const Records = (() => {
 
     const sameProgress = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
     const sameSummary = (a, b) =>
-        JSON.stringify([a.activeDays, a.collected, a.words, a.settings]) === JSON.stringify([b.activeDays, b.collected, b.words, b.settings]);
+        JSON.stringify(SUMMARY_FIELDS.map(f => a[f])) === JSON.stringify(SUMMARY_FIELDS.map(f => b[f]));
     const same = (a, b) => JSON.stringify(merge(a, a)) === JSON.stringify(merge(b, b));
 
     // Settings alone do not count as records.
     const hasRecords = s =>
-        s.activeDays.length > 0 || s.collected.length > 0 || s.words.length > 0 || Object.keys(s.progress).length > 0;
+        SUMMARY_FIELDS.some(f => Array.isArray(s[f]) && s[f].length > 0) || Object.keys(s.progress).length > 0;
 
     // --- Storage ---
     // localStorage may be unavailable (e.g. private browsing); failures are ignored.
@@ -209,8 +218,9 @@ const Records = (() => {
         return load().activeDays.length;
     }
 
-    function getCollected() {
-        return new Set(load().collected);
+    // kind: 'yomi' (漢字から読み) or 'kaki' (読みから漢字)
+    function getCollected(kind) {
+        return new Set(load()[kind] || []);
     }
 
     function getCollectedWords() {
@@ -218,9 +228,10 @@ const Records = (() => {
     }
 
     // Records a finished quiz and the kanji (or 熟語) answered correctly in it. id is null
-    // for a review of missed questions, which is not a personal best. Returns the previous
-    // best, whether it was beaten and what was added to the 漢字ずかん / 熟語ずかん.
-    function recordResult(id, score, total, correctKanji = [], correctWords = []) {
+    // for a review of missed questions, which is not a personal best. kanjiKind says which
+    // 漢字ずかん the kanji go to ('yomi' or 'kaki'). Returns the previous best, whether it
+    // was beaten and what was added to the 漢字ずかん / 熟語ずかん.
+    function recordResult(id, score, total, correctKanji = [], correctWords = [], kanjiKind = 'yomi') {
         const snapshot = load();
         const previous = id ? snapshot.progress[id] || null : null;
         const result = { best: score, total, at: Date.now() };
@@ -235,10 +246,11 @@ const Records = (() => {
             snapshot.activeDays = normalizeDays([...snapshot.activeDays, day]);
             changed.push('summary');
         }
-        const owned = new Set(snapshot.collected);
+        const kind = KANJI_KINDS.includes(kanjiKind) ? kanjiKind : 'yomi';
+        const owned = new Set(snapshot[kind]);
         const newlyCollected = [...new Set(correctKanji.filter(k => isKanji(k) && !owned.has(k)))];
         if (newlyCollected.length > 0) {
-            snapshot.collected = normalizeCollected([...snapshot.collected, ...newlyCollected]);
+            snapshot[kind] = normalizeCollected([...snapshot[kind], ...newlyCollected]);
             if (!changed.includes('summary')) changed.push('summary');
         }
         const ownedWords = new Set(snapshot.words);
@@ -259,9 +271,12 @@ const Records = (() => {
             schema: SCHEMA,
             updatedAt: now,
             activeDays: snapshot.activeDays,
-            // The kanji and the 熟語 ("jukugo:学校") collected in the ずかん
+            // Everything collected in the ずかん, with prefixes (see WORD_PREFIX)
             // (a perfect score is status "done" on the progress document)
-            completed: [...snapshot.collected, ...snapshot.words.map(w => WORD_PREFIX + w)],
+            completed: [
+                ...KANJI_KINDS.flatMap(kind => snapshot[kind].map(k => `${kind}:${k}`)),
+                ...snapshot.words.map(w => WORD_PREFIX + w)
+            ],
             inventory: {},
             spent: {},
             settings: snapshot.settings
@@ -270,10 +285,14 @@ const Records = (() => {
 
     function fromAppDoc(doc) {
         const completed = Array.isArray(doc && doc.completed) ? doc.completed.filter(v => typeof v === 'string') : [];
+        const withPrefix = prefix => completed.filter(v => v.startsWith(prefix)).map(v => v.slice(prefix.length));
         return normalize({
             activeDays: doc && doc.activeDays,
-            collected: completed.filter(v => !v.startsWith(WORD_PREFIX)),
-            words: completed.filter(v => v.startsWith(WORD_PREFIX)).map(v => v.slice(WORD_PREFIX.length)),
+            yomi: withPrefix('yomi:'),
+            kaki: withPrefix('kaki:'),
+            // No prefix: collected before 読み and 書き were separated (normalize puts it in both)
+            collected: completed.filter(v => !v.includes(':')),
+            words: withPrefix(WORD_PREFIX),
             settings: doc && doc.settings
         });
     }
@@ -292,7 +311,7 @@ const Records = (() => {
     }
 
     return {
-        SCHEMA,
+        SCHEMA, SUMMARY_FIELDS,
         empty, merge, mergeProgress, same, sameSummary, sameProgress, hasRecords,
         load, save, use, currentUid, rememberedUid, rememberUid, clear, onChange,
         itemId, today, getSettings, setSettings, getBest, activeDayCount, getCollected, getCollectedWords, recordResult,

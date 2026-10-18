@@ -349,6 +349,50 @@ button {
     background: var(--red);
 }
 
+/* 漢字ずかん: one row each for 読み (red meter) and 書き (ink meter) */
+.zukan-open-kanji {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    column-gap: 0.6rem;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+
+.zukan-open-kanji .points-label {
+    grid-column: 1 / 4;
+}
+
+.zukan-open-kanji::after {
+    grid-column: 4;
+    grid-row: 1 / 4;
+    margin-left: 0;
+}
+
+.zukan-row {
+    display: contents;
+}
+
+.zukan-row .points-num {
+    font-size: 1.25rem;
+    text-align: right;
+}
+
+.zukan-row .zukan-meter {
+    order: 0;
+    flex: none;
+}
+
+.zukan-meter.is-kaki span {
+    background: var(--ink);
+}
+
+.zukan-count-kind {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
 .points-label {
     color: var(--muted);
     font-size: 0.8125rem;
@@ -1343,7 +1387,7 @@ button {
 }
 
 .zukan-tabs {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     margin: 0.75rem 1.25rem 0;
 }
 
