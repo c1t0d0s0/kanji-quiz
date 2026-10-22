@@ -136,6 +136,14 @@
                     </div>
                     <button type="button" id="start-kumitate" class="btn btn-primary start-btn">スタート</button>
                 </div>
+                <div class="mode-card">
+                    <div class="mode-text">
+                        <h2>意味かるた</h2>
+                        <p>意味に 合う 熟語の かるたを、場から さがして とろう！</p>
+                        <p id="best-karuta" class="best" hidden></p>
+                    </div>
+                    <button type="button" id="start-karuta" class="btn btn-primary start-btn">スタート</button>
+                </div>
             </section>
         </div>
 
@@ -152,6 +160,7 @@
                     <li>1問 10びょうの あいだに、4つの 中から 答えを えらびます。</li>
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
                     <li>「熟語くみたて」では、読みに 合う 漢字を じゅんばんに おして 熟語を 作ります。まちがえた 字は、マスを おすと もどせます。</li>
+                    <li>「意味かるた」では、出てきた 意味に 合う 熟語の かるたを 場から さがして おします。1問に おせるのは 1まいだけ。場は よこに スクロールできます。</li>
                     <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」と「読みから漢字」で べつべつに あつまります。ぜんぶ あつめよう！</li>
                     <li>学年の 漢字が「漢字から読み」でも「読みから漢字」でも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
@@ -184,6 +193,12 @@
         <div id="build-area" class="build" hidden>
             <div id="build-slots" class="build-slots" role="group" aria-label="組み立てた熟語"></div>
             <div id="build-tiles" class="build-tiles" role="group" aria-label="漢字のタイル"></div>
+        </div>
+
+        <!-- 意味かるた: the cards on the field, scrolled sideways on a small screen -->
+        <div id="karuta-area" class="karuta" hidden>
+            <div id="karuta-field" class="karuta-field is-start" role="group" aria-label="かるたの 場"></div>
+            <p class="karuta-scroll-hint" aria-hidden="true">‹ よこに スクロール ›</p>
         </div>
 
         <div id="options-area" class="options">

@@ -967,6 +967,195 @@ button {
     white-space: nowrap;
 }
 
+/* --- 意味かるた --- */
+/* A wider screen has room for more of the field */
+.game.is-karuta {
+    max-width: 72rem;
+}
+
+.is-karuta #question-area {
+    flex: none;
+    min-height: 4.5rem;
+}
+
+/* The meaning is a sentence (up to 28 characters): it may wrap */
+.is-karuta #question {
+    max-width: 40rem;
+    padding: 0.5em 0.9em;
+    font-size: clamp(1.125rem, min(5.5vw, 4dvh), 1.75rem);
+    line-height: 1.45;
+    letter-spacing: 0.02em;
+}
+
+.is-karuta #feedback-area {
+    height: 5.25rem;
+}
+
+.karuta {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 0;
+}
+
+/* The field: cards in columns, scrolled sideways when they do not all fit */
+.karuta-field {
+    --rows: 3;
+    --card-w: clamp(3.5rem, 16vw, 4.25rem);
+    --fade-l: 1.75rem;
+    --fade-r: 1.75rem;
+    flex: 1 1 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(var(--rows), auto);
+    grid-auto-columns: var(--card-w);
+    align-content: center;
+    justify-content: safe center;
+    gap: 0.5rem;
+    min-height: 0;
+    padding: 0.6rem 0.75rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+}
+
+.karuta-field.is-start {
+    --fade-l: 0px;
+}
+
+.karuta-field.is-end {
+    --fade-r: 0px;
+}
+
+@media (min-height: 36rem) {
+    .karuta-field {
+        --rows: 4;
+    }
+}
+
+@media (min-height: 46rem) {
+    .karuta-field {
+        --rows: 5;
+    }
+}
+
+.karuta-scroll-hint {
+    display: none;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.karuta.is-scrollable .karuta-scroll-hint {
+    display: block;
+}
+
+/* A card, standing up like a real かるた, with the word written top to bottom */
+.karuta-card {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--card-w);
+    aspect-ratio: 3 / 4;
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--rule-soft);
+    color: var(--ink);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    line-height: 1;
+    scroll-snap-align: center;
+    cursor: pointer;
+}
+
+.karuta-word {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-size: calc(var(--card-w) * 0.42);
+    letter-spacing: 0.04em;
+}
+
+/* Longer words get smaller letters, so they fit in the card */
+.karuta-word.is-len-3 {
+    font-size: calc(var(--card-w) * 0.36);
+}
+
+.karuta-word.is-len-4 {
+    font-size: calc(var(--card-w) * 0.29);
+}
+
+@media (hover: hover) {
+    .karuta-card:hover:not(:disabled) {
+        background: var(--mark-soft);
+    }
+}
+
+.karuta-card:active:not(:disabled) {
+    background: var(--mark);
+}
+
+.karuta-card:focus-visible {
+    outline-offset: 2px;
+    outline-color: var(--red);
+}
+
+.karuta-card:disabled {
+    cursor: default;
+}
+
+/* The right card, when another one was taken or the time ran out */
+.karuta-card.is-answer {
+    background: var(--mark);
+    box-shadow: 0 0 0 3px var(--ink);
+}
+
+.karuta-card.is-correct {
+    background: var(--mark-soft);
+}
+
+.karuta-card.is-wrong {
+    background: var(--red-soft);
+}
+
+/* Marked like a test paper: a red circle for the right card, a cross for a wrong one */
+.karuta-card.is-correct::after,
+.karuta-card.is-wrong::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 92%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.karuta-card.is-correct::after {
+    border: 3px solid var(--red);
+    border-radius: 50%;
+}
+
+.karuta-card.is-wrong::after {
+    background:
+        linear-gradient(45deg, transparent calc(50% - 1.5px), var(--red) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+        linear-gradient(-45deg, transparent calc(50% - 1.5px), var(--red) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px));
+    opacity: 0.7;
+}
+
+/* A card already taken: its place stays, so the others do not move */
+.karuta-card.is-taken {
+    background: transparent;
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    color: transparent;
+}
+
 #feedback .combo {
     display: inline-block;
     margin-left: 0.5em;

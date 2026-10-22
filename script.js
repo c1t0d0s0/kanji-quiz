@@ -6,6 +6,7 @@ const resultScreen = document.getElementById('result-screen');
 const startKtoYBtn = document.getElementById('start-k-to-y');
 const startYtoKBtn = document.getElementById('start-y-to-k');
 const startKumitateBtn = document.getElementById('start-kumitate');
+const startKarutaBtn = document.getElementById('start-karuta');
 const retryBtn = document.getElementById('retry-btn');
 const reviewBtn = document.getElementById('review-btn');
 const quitBtn = document.getElementById('quit-btn');
@@ -24,6 +25,8 @@ const optionsArea = document.getElementById('options-area');
 const buildArea = document.getElementById('build-area');
 const buildSlots = document.getElementById('build-slots');
 const buildTiles = document.getElementById('build-tiles');
+const karutaArea = document.getElementById('karuta-area');
+const karutaField = document.getElementById('karuta-field');
 const feedbackEl = document.getElementById('feedback');
 const answerNoteEl = document.getElementById('answer-note');
 
@@ -48,7 +51,8 @@ const practiceDaysNum = document.getElementById('practice-days-num');
 const bestEls = {
     'k-to-y': document.getElementById('best-k-to-y'),
     'y-to-k': document.getElementById('best-y-to-k'),
-    kumitate: document.getElementById('best-kumitate')
+    kumitate: document.getElementById('best-kumitate'),
+    karuta: document.getElementById('best-karuta')
 };
 const accountEl = document.getElementById('account');
 const accountBody = document.getElementById('account-body');
@@ -96,7 +100,7 @@ let score = 0;
 let timer;
 let timerInterval;
 let nextQuestionTimeout;
-let quizMode = ''; // 'k-to-y', 'y-to-k' or 'kumitate' (熟語くみたて)
+let quizMode = ''; // 'k-to-y', 'y-to-k', 'kumitate' (熟語くみたて) or 'karuta' (意味かるた)
 let quizItemId = null; // record id of the quiz being played (mode + grade + count); null for a review
 let combo = 0; // correct answers in a row
 let maxCombo = 0;
@@ -104,10 +108,17 @@ let missedItems = []; // questions answered wrong or too late, for the review
 let correctKanji = []; // kanji answered correctly, for the 漢字ずかん
 let correctWords = []; // 熟語 built correctly, for the 熟語ずかん
 let build = null; // 熟語くみたて: { tiles: [{ char, used }], slots: [tile index or null], locked }
+let karuta = null; // 意味かるた: { cards: [{ item, taken }], buttons, answer: card index, locked }
 const TIME_LIMIT = 10;
 // 熟語くみたて: more time for longer words, and always 8 tiles (4 x 2)
 const KUMITATE_TIME_LIMIT = { 2: 15, 3: 18, 4: 21 };
 const TILE_COUNT = 8;
+// 意味かるた: the cards on the field for each question count (the rest are never asked),
+// and more time to look for a card on a bigger field
+const KARUTA_FIELD_SIZE = { 5: 20, 10: 30, 20: 50 };
+const KARUTA_MAX_FIELD = 50;
+const karutaFieldSize = count => KARUTA_FIELD_SIZE[count] || Math.min(KARUTA_MAX_FIELD, Math.max(20, count * 3));
+const karutaTimeLimit = size => (size <= 20 ? 15 : size <= 30 ? 20 : 25);
 
 const kanjiReadings = new Map(kanjiDatabase.map(item => [item.kanji, item.readings]));
 const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
@@ -411,7 +422,7 @@ function renderWordZukan() {
                 cell.setAttribute('aria-label', has ? `${item.word} (${item.reading})` : `${item.word} (まだ あつめていない)`);
                 cell.addEventListener('click', () => {
                     if (has) zukanDetail.replaceChildren(el('b', 'zukan-detail-kanji', item.word), ` ${item.reading}`, el('span', 'zukan-detail-meaning', item.meaning));
-                    else zukanDetail.textContent = `「${item.word}」は まだ あつめていないよ。熟語くみたてで 正解すると あつまるよ！`;
+                    else zukanDetail.textContent = `「${item.word}」は まだ あつめていないよ。熟語くみたてや 意味かるたで 正解すると あつまるよ！`;
                 });
                 grid.append(cell);
             });
@@ -668,13 +679,19 @@ function startQuiz(mode, reviewItems) {
     correctKanji = [];
     correctWords = [];
     const isKumitate = mode === 'kumitate';
+    const isKaruta = mode === 'karuta';
     quizScreen.classList.toggle('is-kumitate', isKumitate);
-    optionsArea.hidden = isKumitate;
+    quizScreen.classList.toggle('is-karuta', isKaruta);
+    optionsArea.hidden = isKumitate || isKaruta;
     buildArea.hidden = !isKumitate;
+    karutaArea.hidden = !isKaruta;
 
     if (reviewItems) {
         currentQuiz = shuffleArray([...reviewItems]);
         quizItemId = null;
+    } else if (isKaruta) {
+        currentQuiz = pickKarutaWords(shuffleArray(getFilteredJukugoList()), [], selectedQuestionCount);
+        quizItemId = Records.itemId(mode, selectedGrade, selectedQuestionCount);
     } else if (isKumitate) {
         const shuffledPool = shuffleArray(getFilteredJukugoList());
         currentQuiz = shuffledPool.slice(0, Math.min(selectedQuestionCount, shuffledPool.length));
@@ -693,6 +710,7 @@ function startQuiz(mode, reviewItems) {
     }
 
     showScreen(quizScreen);
+    if (isKaruta) startKaruta();
     displayQuestion();
 }
 
@@ -714,6 +732,13 @@ function displayQuestion() {
     gradeBadge.textContent = `${currentKanji.grade}年生`;
 
     questionHint.hidden = quizMode !== 'kumitate';
+    if (quizMode === 'karuta') {
+        questionEl.textContent = currentKanji.meaning;
+        questionEl.classList.remove('is-kanji');
+        nextKaruta(currentKanji);
+        startTimer(karutaTimeLimit(karuta.cards.length));
+        return;
+    }
     if (quizMode === 'kumitate') {
         questionEl.textContent = currentKanji.reading;
         questionEl.classList.remove('is-kanji');
@@ -875,6 +900,109 @@ function finishBuild(item, built, message) {
     goToNextQuestion();
 }
 
+// --- 意味かるた ---
+// Takes up to count words from pool, leaving out any whose word or meaning is already
+// taken (in taken or picked before), so every meaning on the field points to one card only.
+function pickKarutaWords(pool, taken, count) {
+    const words = new Set(taken.map(item => item.word));
+    const meanings = new Set(taken.map(item => item.meaning));
+    const picked = [];
+    for (const item of pool) {
+        if (picked.length >= count) break;
+        if (words.has(item.word) || meanings.has(item.meaning)) continue;
+        words.add(item.word);
+        meanings.add(item.meaning);
+        picked.push(item);
+    }
+    return picked;
+}
+
+// Lays out the field once for the whole quiz: the words asked, and cards never asked
+function startKaruta() {
+    const size = karutaFieldSize(currentQuiz.length);
+    const extra = pickKarutaWords(shuffleArray(getFilteredJukugoList()), currentQuiz, size - currentQuiz.length);
+    const cards = shuffleArray([...currentQuiz, ...extra]).map(item => ({ item, taken: false }));
+    const buttons = cards.map((card, i) => {
+        const button = el('button', 'karuta-card');
+        button.type = 'button';
+        button.append(el('span', `karuta-word is-len-${[...card.item.word].length}`, card.item.word));
+        button.setAttribute('aria-label', card.item.word);
+        button.addEventListener('click', () => takeCard(i));
+        return button;
+    });
+    karuta = { cards, buttons, answer: -1, locked: true };
+    karutaField.replaceChildren(...buttons);
+    karutaField.scrollLeft = 0;
+    updateKarutaEdges();
+}
+
+// The card of the last question leaves the field; its place stays empty, so the others do not move
+function nextKaruta(item) {
+    if (karuta.answer !== -1) karuta.cards[karuta.answer].taken = true;
+    karuta.answer = karuta.cards.findIndex(card => card.item.word === item.word);
+    karuta.buttons.forEach((button, i) => {
+        const taken = karuta.cards[i].taken;
+        button.className = taken ? 'karuta-card is-taken' : 'karuta-card';
+        button.disabled = taken;
+        if (taken) button.setAttribute('aria-hidden', 'true');
+    });
+    karuta.locked = false;
+}
+
+// Only one card can be taken for each question; a wrong one (おてつき) ends the question
+function takeCard(index) {
+    if (karuta.locked) return;
+    const item = currentQuiz[currentQuestionIndex];
+    const isCorrect = index === karuta.answer;
+    if (!isCorrect) karuta.buttons[index].classList.add('is-wrong');
+    finishKaruta(item, isCorrect, isCorrect ? '正解！' : 'おてつき！');
+}
+
+function finishKaruta(item, isCorrect, message) {
+    clearInterval(timerInterval);
+    karuta.locked = true;
+    karuta.buttons.forEach(button => { button.disabled = true; });
+    const answer = karuta.buttons[karuta.answer];
+    answer.classList.add(isCorrect ? 'is-correct' : 'is-answer');
+    // Show where the right card was, even when it is off the screen
+    if (!isCorrect) {
+        answer.scrollIntoView({ inline: 'center', block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+    feedbackEl.textContent = message;
+    if (isCorrect) {
+        score++;
+        combo++;
+        maxCombo = Math.max(maxCombo, combo);
+        correctWords.push(item.word);
+        feedbackEl.classList.add('correct');
+        if (combo >= 2) {
+            feedbackEl.append(el('span', 'combo', `${combo}れんぞく！`));
+            feedbackEl.classList.add('is-combo');
+        }
+        playSound(true, combo);
+    } else {
+        combo = 0;
+        missedItems.push(item);
+        feedbackEl.classList.add('incorrect');
+        playSound(false);
+    }
+    showAnswerNote(item);
+    goToNextQuestion();
+}
+
+// Fades the edges of the field that have more cards beyond them
+function updateKarutaEdges() {
+    const max = karutaField.scrollWidth - karutaField.clientWidth;
+    karutaField.classList.toggle('is-start', karutaField.scrollLeft <= 1);
+    karutaField.classList.toggle('is-end', karutaField.scrollLeft >= max - 1);
+    karutaArea.classList.toggle('is-scrollable', max > 1);
+}
+
+karutaField.addEventListener('scroll', updateKarutaEdges, { passive: true });
+window.addEventListener('resize', () => {
+    if (quizMode === 'karuta') updateKarutaEdges();
+});
+
 function startTimer(limit = TIME_LIMIT) {
     timer = limit;
     timerDisplay.textContent = timer;
@@ -981,6 +1109,10 @@ function goToNextQuestion() {
 function handleTimeout() {
     if (quizMode === 'kumitate') {
         finishBuild(currentQuiz[currentQuestionIndex], null, '時間切れ！');
+        return;
+    }
+    if (quizMode === 'karuta') {
+        finishKaruta(currentQuiz[currentQuestionIndex], false, '時間切れ！');
         return;
     }
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -1092,7 +1224,7 @@ function renderNewWords(list) {
 function renderMissed() {
     // The same question can be missed only once per quiz, but keep it tidy anyway
     const unique = [...new Map(missedItems.map(item => [item.word || item.kanji, item])).values()];
-    const what = quizMode === 'kumitate' ? '熟語' : '漢字';
+    const what = quizMode === 'kumitate' || quizMode === 'karuta' ? '熟語' : '漢字';
     missedTitle.textContent = `まちがえた ${what}`;
     reviewBtn.textContent = `まちがえた ${what}だけ もう一度`;
     missedSection.hidden = unique.length === 0;
@@ -1109,6 +1241,7 @@ function renderMissed() {
 startKtoYBtn.addEventListener('click', () => startQuiz('k-to-y'));
 startYtoKBtn.addEventListener('click', () => startQuiz('y-to-k'));
 startKumitateBtn.addEventListener('click', () => startQuiz('kumitate'));
+startKarutaBtn.addEventListener('click', () => startQuiz('karuta'));
 reviewBtn.addEventListener('click', () => startQuiz(quizMode, missedItems));
 retryBtn.addEventListener('click', () => {
     renderHome();
