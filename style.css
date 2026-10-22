@@ -975,14 +975,18 @@ button {
 
 .is-karuta #question-area {
     flex: none;
-    min-height: 4.5rem;
+    /* Always room for a meaning of 2 lines, so the field below keeps the same height
+       (and the same rows of cards) for every question */
+    font-size: clamp(1rem, min(4.6vw, 3.6dvh), 1.5rem);
+    height: calc(2 * 1.45em + 1em + 2px);
+    max-height: none;
 }
 
-/* The meaning is a sentence (up to 28 characters): it may wrap */
+/* The meaning is a sentence (up to 32 characters): it may wrap */
 .is-karuta #question {
     max-width: 40rem;
     padding: 0.5em 0.9em;
-    font-size: clamp(1.125rem, min(5.5vw, 4dvh), 1.75rem);
+    font-size: 1em;
     line-height: 1.45;
     letter-spacing: 0.02em;
 }
@@ -999,7 +1003,8 @@ button {
     min-height: 0;
 }
 
-/* The field: cards in columns, scrolled sideways when they do not all fit */
+/* The field: cards in columns, scrolled sideways when they do not all fit.
+   The number of rows is set by script.js (fitKarutaRows), from the height the field really has. */
 .karuta-field {
     --rows: 3;
     --card-w: clamp(3.5rem, 16vw, 4.25rem);
@@ -1032,17 +1037,6 @@ button {
     --fade-r: 0px;
 }
 
-@media (min-height: 36rem) {
-    .karuta-field {
-        --rows: 4;
-    }
-}
-
-@media (min-height: 46rem) {
-    .karuta-field {
-        --rows: 5;
-    }
-}
 
 .karuta-scroll-hint {
     display: none;

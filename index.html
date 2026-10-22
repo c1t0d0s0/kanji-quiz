@@ -6,6 +6,28 @@
     <meta name="theme-color" content="#eef3ee" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#14211c" media="(prefers-color-scheme: dark)">
     <title>漢字クイズ - 小学校1〜6年生</title>
+    <!-- After a new build is published, this page itself may still come from the cache for a while
+         (with the old ?v= of every file). Ask the server for the current build (version.json, written
+         by scripts/add-versions.js together with the "build" meta tag), and load it if this page is older.
+         A copy run from the files directly has no build tag, and checks nothing. -->
+    <script>
+      (function () {
+        var meta = document.querySelector('meta[name="build"]');
+        if (!meta || !window.fetch) return;
+        fetch('version.json', { cache: 'no-store' })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (latest) {
+            if (!latest || !latest.build || latest.build === meta.content) return;
+            var params = new URLSearchParams(location.search);
+            // Already asked for this build once: do not go round in circles
+            if (params.get('build') === latest.build) return;
+            // A new address, so the browser cannot answer from its cache
+            params.set('build', latest.build);
+            location.replace(location.pathname + '?' + params.toString() + location.hash);
+          })
+          .catch(function () { /* offline: keep this page */ });
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">

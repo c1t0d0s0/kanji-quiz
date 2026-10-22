@@ -59,7 +59,8 @@ jobs:
             }
             console.log(names.map(name => `const ${name} = ${JSON.stringify(value(name))};`).join("\n"));
           ' > dist/config.js
-      # Add "?v=<hash>" to each script and stylesheet, so a changed file is never served from the browser cache
+      # Add "?v=<hash>" to each script and stylesheet, so a changed file is never served from the browser cache,
+      # and write the build into index.html and version.json (a page cached from before reloads the new build)
       - name: Add versions to the file names in index.html
         run: node scripts/add-versions.js dist/index.html
       - uses: actions/configure-pages@v5

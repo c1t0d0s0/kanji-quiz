@@ -911,7 +911,7 @@ function renderKarutaField(items, onTake) {
     karuta = { cards, buttons, answer: -1, locked: true };
     karutaField.replaceChildren(...buttons);
     karutaField.scrollLeft = 0;
-    updateKarutaEdges();
+    fitKarutaRows();
 }
 
 // The card of the last question leaves the field; its place stays empty, so the others do not move
@@ -976,10 +976,24 @@ function updateKarutaEdges() {
     karutaArea.classList.toggle('is-scrollable', max > 1);
 }
 
+// As many rows of cards as fit in the field's real height. The height left for the field
+// depends on more than the screen (the 対戦 also shows the players' scores), so it is measured.
+const KARUTA_MAX_ROWS = 5;
+function fitKarutaRows() {
+    const card = karutaField.querySelector('.karuta-card');
+    if (!card || karutaArea.hidden) return;
+    const style = getComputedStyle(karutaField);
+    const gap = parseFloat(style.rowGap) || 0;
+    // The cards may reach into the padding, but not past the edge
+    const room = karutaField.clientHeight;
+    const rows = Math.max(1, Math.min(KARUTA_MAX_ROWS, Math.floor((room + gap) / (card.getBoundingClientRect().height + gap))));
+    if (karutaField.style.getPropertyValue('--rows') !== String(rows)) karutaField.style.setProperty('--rows', rows);
+    updateKarutaEdges();
+}
+
 karutaField.addEventListener('scroll', updateKarutaEdges, { passive: true });
-window.addEventListener('resize', () => {
-    if (quizMode === 'karuta') updateKarutaEdges();
-});
+// Also when the field first appears, and when the scores above it change height
+new ResizeObserver(fitKarutaRows).observe(karutaField);
 
 function startTimer(limit = TIME_LIMIT) {
     timer = limit;
