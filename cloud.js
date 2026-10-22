@@ -20,11 +20,17 @@ const Cloud = (() => {
         if (filled > 0 && filled < 4) {
             console.error('config.js: FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID and FIREBASE_APP_ID are all required');
         }
-        return filled === 4 ? config : null;
+        if (filled < 4) return null;
+        // Only for the 対戦 (Realtime Database); without it there is no 対戦
+        const databaseURL = value(typeof FIREBASE_DATABASE_URL !== 'undefined' && FIREBASE_DATABASE_URL);
+        return databaseURL ? { ...config, databaseURL } : config;
     }
 
     const config = readConfig();
     const available = config !== null;
+    const battleAvailable = available && Boolean(config.databaseURL);
+    // Development only: talk to the Firebase emulators on this computer
+    const emulator = available && typeof FIREBASE_EMULATOR !== 'undefined' && FIREBASE_EMULATOR === true;
 
     // loading: checking whether someone is signed in
     // signed-out: not signed in (records stay on this device)
@@ -49,15 +55,31 @@ const Cloud = (() => {
         if (available) Records.use(Records.rememberedUid());
     }
 
+    // The Firebase app and sign-in, shared with the 対戦 (battle-net.js)
+    let sdk = null;
+    function firebase() {
+        if (!sdk) {
+            sdk = Promise.all([
+                import(`${FIREBASE_CDN}firebase-app.js`),
+                import(`${FIREBASE_CDN}firebase-auth.js`)
+            ]).then(([appSdk, authSdk]) => {
+                const app = appSdk.initializeApp(config);
+                const firebaseAuth = authSdk.getAuth(app);
+                if (emulator) authSdk.connectAuthEmulator(firebaseAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
+                return { app, authSdk, auth: firebaseAuth, cdn: FIREBASE_CDN, emulator };
+            });
+            sdk.catch(() => { sdk = null; });
+        }
+        return sdk;
+    }
+
     async function loadFirebase() {
-        const [appSdk, authSdk, db] = await Promise.all([
-            import(`${FIREBASE_CDN}firebase-app.js`),
-            import(`${FIREBASE_CDN}firebase-auth.js`),
+        const [{ app, authSdk, auth: firebaseAuth }, db] = await Promise.all([
+            firebase(),
             import(`${FIREBASE_CDN}firebase-firestore-lite.js`)
         ]);
-        const app = appSdk.initializeApp(config);
-        const firebaseAuth = authSdk.getAuth(app);
         const firestore = db.getFirestore(app);
+        if (emulator) db.connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
 
         const userRef = uid => db.doc(firestore, 'users', uid);
         const appRef = uid => db.doc(firestore, 'users', uid, 'apps', APP_ID);
@@ -99,7 +121,9 @@ const Cloud = (() => {
             },
             auth: {
                 onUser(cb) {
-                    authSdk.onAuthStateChanged(firebaseAuth, user => cb(user ? user.uid : null));
+                    // The anonymous sign-in for a 対戦 counts as signed out: records go to
+                    // Firestore only for a Google account
+                    authSdk.onAuthStateChanged(firebaseAuth, user => cb(user && !user.isAnonymous ? user.uid : null));
                 },
                 signIn: () => authSdk.signInWithPopup(firebaseAuth, new authSdk.GoogleAuthProvider()),
                 signOut: () => authSdk.signOut(firebaseAuth)
@@ -306,5 +330,5 @@ const Cloud = (() => {
         if (summary && (!theirSummary || !Records.sameSummary(merged, theirSummary))) await remote.saveSummary(uid, merged);
     }
 
-    return { available, state, restore, start, signIn, signOut };
+    return { available, battleAvailable, state, restore, start, signIn, signOut, firebase };
 })();

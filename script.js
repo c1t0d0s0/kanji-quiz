@@ -113,12 +113,6 @@ const TIME_LIMIT = 10;
 // 熟語くみたて: more time for longer words, and always 8 tiles (4 x 2)
 const KUMITATE_TIME_LIMIT = { 2: 15, 3: 18, 4: 21 };
 const TILE_COUNT = 8;
-// 意味かるた: the cards on the field for each question count (the rest are never asked),
-// and more time to look for a card on a bigger field
-const KARUTA_FIELD_SIZE = { 5: 20, 10: 30, 20: 50 };
-const KARUTA_MAX_FIELD = 50;
-const karutaFieldSize = count => KARUTA_FIELD_SIZE[count] || Math.min(KARUTA_MAX_FIELD, Math.max(20, count * 3));
-const karutaTimeLimit = size => (size <= 20 ? 15 : size <= 30 ? 20 : 25);
 
 const kanjiReadings = new Map(kanjiDatabase.map(item => [item.kanji, item.readings]));
 const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
@@ -646,7 +640,7 @@ function hanamaruPoints() {
 }
 
 function showScreen(screen) {
-    [startScreen, quizScreen, resultScreen].forEach(s => s.classList.toggle('active', s === screen));
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s === screen));
     window.scrollTo(0, 0);
 }
 
@@ -659,11 +653,7 @@ function getFilteredKanjiList() {
 }
 
 function getFilteredJukugoList() {
-    if (selectedGrade === 'all') {
-        return [...jukugoDatabase];
-    }
-    const targetGrade = parseInt(selectedGrade, 10);
-    return jukugoDatabase.filter(item => item.grade === targetGrade);
+    return Karuta.wordsFor(selectedGrade);
 }
 
 // --- Quiz Controller ---
@@ -682,6 +672,7 @@ function startQuiz(mode, reviewItems) {
     const isKaruta = mode === 'karuta';
     quizScreen.classList.toggle('is-kumitate', isKumitate);
     quizScreen.classList.toggle('is-karuta', isKaruta);
+    quizScreen.classList.remove('is-battle');
     optionsArea.hidden = isKumitate || isKaruta;
     buildArea.hidden = !isKumitate;
     karutaArea.hidden = !isKaruta;
@@ -690,7 +681,7 @@ function startQuiz(mode, reviewItems) {
         currentQuiz = shuffleArray([...reviewItems]);
         quizItemId = null;
     } else if (isKaruta) {
-        currentQuiz = pickKarutaWords(shuffleArray(getFilteredJukugoList()), [], selectedQuestionCount);
+        currentQuiz = Karuta.pickWords(shuffleArray(getFilteredJukugoList()), [], selectedQuestionCount);
         quizItemId = Records.itemId(mode, selectedGrade, selectedQuestionCount);
     } else if (isKumitate) {
         const shuffledPool = shuffleArray(getFilteredJukugoList());
@@ -736,7 +727,7 @@ function displayQuestion() {
         questionEl.textContent = currentKanji.meaning;
         questionEl.classList.remove('is-kanji');
         nextKaruta(currentKanji);
-        startTimer(karutaTimeLimit(karuta.cards.length));
+        startTimer(Karuta.timeLimit(karuta.cards.length));
         return;
     }
     if (quizMode === 'kumitate') {
@@ -901,33 +892,20 @@ function finishBuild(item, built, message) {
 }
 
 // --- 意味かるた ---
-// Takes up to count words from pool, leaving out any whose word or meaning is already
-// taken (in taken or picked before), so every meaning on the field points to one card only.
-function pickKarutaWords(pool, taken, count) {
-    const words = new Set(taken.map(item => item.word));
-    const meanings = new Set(taken.map(item => item.meaning));
-    const picked = [];
-    for (const item of pool) {
-        if (picked.length >= count) break;
-        if (words.has(item.word) || meanings.has(item.meaning)) continue;
-        words.add(item.word);
-        meanings.add(item.meaning);
-        picked.push(item);
-    }
-    return picked;
-}
-
 // Lays out the field once for the whole quiz: the words asked, and cards never asked
 function startKaruta() {
-    const size = karutaFieldSize(currentQuiz.length);
-    const extra = pickKarutaWords(shuffleArray(getFilteredJukugoList()), currentQuiz, size - currentQuiz.length);
-    const cards = shuffleArray([...currentQuiz, ...extra]).map(item => ({ item, taken: false }));
+    renderKarutaField(Karuta.fieldFor(currentQuiz, getFilteredJukugoList(), shuffleArray), takeCard);
+}
+
+// Puts the cards on the field (also used by the 対戦, with a field shared by everyone)
+function renderKarutaField(items, onTake) {
+    const cards = items.map(item => ({ item, taken: false }));
     const buttons = cards.map((card, i) => {
         const button = el('button', 'karuta-card');
         button.type = 'button';
         button.append(el('span', `karuta-word is-len-${[...card.item.word].length}`, card.item.word));
         button.setAttribute('aria-label', card.item.word);
-        button.addEventListener('click', () => takeCard(i));
+        button.addEventListener('click', () => onTake(i));
         return button;
     });
     karuta = { cards, buttons, answer: -1, locked: true };
@@ -1248,6 +1226,10 @@ retryBtn.addEventListener('click', () => {
     showScreen(startScreen);
 });
 quitBtn.addEventListener('click', () => {
+    if (BattleUI.playing()) {
+        BattleUI.quit();
+        return;
+    }
     clearInterval(timerInterval);
     clearTimeout(nextQuestionTimeout);
     renderHome();
