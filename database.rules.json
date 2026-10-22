@@ -1,0 +1,73 @@
+{
+  "rules": {
+    "kanjiBattles": {
+      "$code": {
+        ".read": "auth != null && $code.matches(/^[1-9][0-9]{4}$/)",
+        ".write": "auth != null && $code.matches(/^[1-9][0-9]{4}$/) && ((!data.exists() && newData.child('hostUid').val() === auth.uid && newData.child('status').val() === 'waiting' && newData.child('round').val() === 1) || (data.exists() && data.child('createdAt').val() < now - 86400000 && (!newData.exists() || (newData.child('status').val() === 'waiting' && newData.child('round').val() === 1))) || (data.exists() && !newData.exists() && data.child('hostUid').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['app', 'hostUid', 'createdAt', 'grade', 'count', 'version', 'round', 'seed', 'status'])",
+        "app": { ".validate": "newData.val() === 'kanji-quiz'" },
+        "hostUid": { ".validate": "newData.isString() && (newData.val() === data.val() || newData.val() === auth.uid)" },
+        "createdAt": { ".validate": "newData.isNumber() && (newData.val() === data.val() || newData.val() === now)" },
+        "grade": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6" },
+        "count": { ".validate": "newData.val() === 5 || newData.val() === 10 || newData.val() === 20" },
+        "version": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "round": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        },
+        "seed": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "status": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.val() === 'waiting' || newData.val() === 'playing' || newData.val() === 'finished'"
+        },
+        "startAt": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= now - 60000 && newData.val() <= now + 60000"
+        },
+        "q": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 20"
+        },
+        "qAt": {
+          ".write": "auth != null && data.parent().child('hostUid').val() === auth.uid",
+          ".validate": "newData.isNumber() && newData.val() >= now - 60000 && newData.val() <= now + 60000"
+        },
+        "players": {
+          "$seat": {
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && data.parent().parent().child('status').val() === 'waiting') || (data.exists() && data.child('uid').val() === auth.uid))",
+            ".validate": "$seat.matches(/^[0-7]$/) && newData.hasChildren(['uid', 'name', 'joinedAt', 'online'])",
+            "uid": { ".validate": "newData.val() === auth.uid" },
+            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+            "joinedAt": { ".validate": "newData.isNumber()" },
+            "online": { ".validate": "newData.isBoolean()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "takes": {
+          ".write": "auth != null && !newData.exists() && data.parent().child('hostUid').val() === auth.uid",
+          "$q": {
+            ".write": "auth != null && !data.exists() && newData.exists() && data.parent().parent().child('status').val() === 'playing' && (data.parent().parent().child('q').val() + '') === $q && data.parent().parent().child('qAt').val() <= now && data.parent().parent().child('players').child(newData.child('seat').val() + '').child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['seat', 'round', 'at'])",
+            "seat": { ".validate": "newData.isString() && newData.val().matches(/^[0-7]$/)" },
+            "round": { ".validate": "newData.val() === data.parent().parent().parent().child('round').val()" },
+            "at": { ".validate": "newData.val() === now" },
+            "$other": { ".validate": false }
+          }
+        },
+        "faults": {
+          ".write": "auth != null && !newData.exists() && data.parent().child('hostUid').val() === auth.uid",
+          "$q": {
+            "$seat": {
+              ".write": "auth != null && !data.exists() && data.parent().parent().parent().child('status').val() === 'playing' && (data.parent().parent().parent().child('q').val() + '') === $q && data.parent().parent().parent().child('players').child($seat).child('uid').val() === auth.uid",
+              ".validate": "newData.val() === true"
+            }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

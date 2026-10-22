@@ -33,7 +33,8 @@ jobs:
           rm -f dist/config.example.js
       # config.js is not tracked by Git, so it is written from the repository variables.
       # GTM_ID embeds the Google tag; the four FIREBASE_* values enable Google sign-in
-      # and saving to Firestore. Variables that are not registered stay empty (feature off).
+      # and saving to Firestore; FIREBASE_DATABASE_URL also enables the 意味かるた たいせん.
+      # Variables that are not registered stay empty (feature off).
       - name: Write config.js
         env:
           GTM_ID: ${{ vars.GTM_ID }}
@@ -41,16 +42,20 @@ jobs:
           FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_DATABASE_URL: ${{ vars.FIREBASE_DATABASE_URL }}
         run: |
           node -e '
-            const names = ["GTM_ID", "FIREBASE_API_KEY", "FIREBASE_AUTH_DOMAIN", "FIREBASE_PROJECT_ID", "FIREBASE_APP_ID"];
+            const names = ["GTM_ID", "FIREBASE_API_KEY", "FIREBASE_AUTH_DOMAIN", "FIREBASE_PROJECT_ID", "FIREBASE_APP_ID", "FIREBASE_DATABASE_URL"];
             const value = name => (process.env[name] || "").trim();
             if (value("GTM_ID") && !/^(GTM|G)-[A-Z0-9]+$/.test(value("GTM_ID"))) {
               throw new Error("GTM_ID must look like GTM-XXXXXXX or G-XXXXXXXXXX");
             }
-            const firebase = names.slice(1).filter(value).length;
+            const firebase = names.slice(1, 5).filter(value).length;
             if (firebase > 0 && firebase < 4) {
               throw new Error("Register all four FIREBASE_* variables, or none of them");
+            }
+            if (value("FIREBASE_DATABASE_URL") && firebase < 4) {
+              throw new Error("FIREBASE_DATABASE_URL needs the four FIREBASE_* variables too");
             }
             console.log(names.map(name => `const ${name} = ${JSON.stringify(value(name))};`).join("\n"));
           ' > dist/config.js

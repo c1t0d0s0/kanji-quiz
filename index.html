@@ -142,7 +142,11 @@
                         <p>意味に 合う 熟語の かるたを、場から さがして とろう！</p>
                         <p id="best-karuta" class="best" hidden></p>
                     </div>
-                    <button type="button" id="start-karuta" class="btn btn-primary start-btn">スタート</button>
+                    <div class="mode-actions">
+                        <button type="button" id="start-karuta" class="btn btn-primary start-btn">スタート</button>
+                        <!-- Shown only when config.js has FIREBASE_DATABASE_URL -->
+                        <button type="button" id="battle-open" class="btn start-btn" hidden>たいせん</button>
+                    </div>
                 </div>
             </section>
         </div>
@@ -161,6 +165,7 @@
                     <li>いちばん よかった 成績は「じこベスト」として のこります。</li>
                     <li>「熟語くみたて」では、読みに 合う 漢字を じゅんばんに おして 熟語を 作ります。まちがえた 字は、マスを おすと もどせます。</li>
                     <li>「意味かるた」では、出てきた 意味に 合う 熟語の かるたを 場から さがして おします。1問に おせるのは 1まいだけ。場は よこに スクロールできます。</li>
+                    <li id="howto-battle" hidden>「たいせん」では、2〜8人で 同じ 場の かるたを とりあいます。いちばん はやく 正しい 札を おした 人が その 札を もらえます。おてつきすると、その 問題は お休みです。</li>
                     <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」と「読みから漢字」で べつべつに あつまります。ぜんぶ あつめよう！</li>
                     <li>学年の 漢字が「漢字から読み」でも「読みから漢字」でも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
@@ -182,6 +187,9 @@
         <div class="progress-container">
             <div id="progress-bar"></div>
         </div>
+
+        <!-- 意味かるた たいせん: the cards everyone has taken -->
+        <ul id="battle-scores" class="battle-scores" aria-label="みんなの 札の 数"></ul>
 
         <div id="question-area">
             <p id="question"></p>
@@ -257,6 +265,86 @@
         </div>
     </div>
 
+    <!-- 意味かるた たいせん: entrance, waiting room and result (the game itself is on the quiz screen) -->
+    <div id="battle-screen" class="screen result-screen battle-screen">
+        <div class="result-card">
+            <header class="battle-head">
+                <button type="button" id="battle-home" class="home-btn"><span aria-hidden="true">‹</span>ホーム</button>
+                <h1>意味かるた たいせん</h1>
+            </header>
+
+            <section id="battle-entry" class="battle-view" hidden>
+                <label class="battle-field">
+                    <span>なまえ（ニックネーム）</span>
+                    <input id="battle-name" class="battle-input" type="text" maxlength="20" autocomplete="nickname" enterkeyhint="done" placeholder="10文字まで">
+                </label>
+                <div id="battle-create-area" class="battle-create">
+                    <div>
+                        <h2 id="battle-grade-title">学年</h2>
+                        <div class="seg grade-selector" id="battle-grade" role="group" aria-labelledby="battle-grade-title">
+                            <button type="button" class="seg-option" data-grade="all" aria-pressed="true">全学年</button>
+                            <button type="button" class="seg-option" data-grade="1" aria-pressed="false">1年生</button>
+                            <button type="button" class="seg-option" data-grade="2" aria-pressed="false">2年生</button>
+                            <button type="button" class="seg-option" data-grade="3" aria-pressed="false">3年生</button>
+                            <button type="button" class="seg-option" data-grade="4" aria-pressed="false">4年生</button>
+                            <button type="button" class="seg-option" data-grade="5" aria-pressed="false">5年生</button>
+                            <button type="button" class="seg-option" data-grade="6" aria-pressed="false">6年生</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 id="battle-count-title">出題数</h2>
+                        <div class="seg count-selector" id="battle-count" role="group" aria-labelledby="battle-count-title">
+                            <button type="button" class="seg-option" data-count="5" aria-pressed="false">5問</button>
+                            <button type="button" class="seg-option" data-count="10" aria-pressed="true">10問</button>
+                            <button type="button" class="seg-option" data-count="20" aria-pressed="false">20問</button>
+                        </div>
+                    </div>
+                    <button type="button" id="battle-create" class="btn btn-primary battle-main-btn">部屋を 作る</button>
+                </div>
+                <div class="battle-join">
+                    <h2>コードで 入る</h2>
+                    <div class="battle-join-row">
+                        <input id="battle-code" class="battle-input battle-code-input" type="text" inputmode="numeric" maxlength="7" autocomplete="off" enterkeyhint="go" placeholder="12345" aria-label="対戦コード">
+                        <button type="button" id="battle-join" class="btn">入る</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="battle-lobby" class="battle-view" hidden>
+                <div class="battle-invite">
+                    <div>
+                        <p class="result-sub">対戦コード</p>
+                        <p id="battle-room-code" class="battle-room-code"></p>
+                        <p id="battle-room-setting" class="result-sub"></p>
+                    </div>
+                    <img id="battle-qr" class="battle-qr" alt="しょうたいの QRコード" hidden>
+                </div>
+                <div class="battle-url-row">
+                    <input id="battle-url" class="battle-input" type="text" readonly aria-label="しょうたいの URL">
+                    <button type="button" id="battle-copy" class="btn">コピー</button>
+                </div>
+                <div>
+                    <h2 id="battle-players-title">参加している 人</h2>
+                    <ul id="battle-players" class="battle-players" aria-labelledby="battle-players-title"></ul>
+                </div>
+                <button type="button" id="battle-start" class="btn btn-primary battle-main-btn" hidden>スタート</button>
+            </section>
+
+            <section id="battle-result" class="battle-view" hidden>
+                <h2>結果発表</h2>
+                <ol id="battle-standings" class="battle-standings"></ol>
+                <section id="battle-new-words" class="result-section" hidden>
+                    <h2>ずかんに くわわった 熟語</h2>
+                    <div id="battle-new-words-list" class="new-kanji-list"></div>
+                </section>
+                <button type="button" id="battle-rematch" class="btn btn-primary battle-main-btn" hidden>もう一度</button>
+            </section>
+
+            <p id="battle-message" class="battle-message" role="status"></p>
+            <button type="button" id="battle-leave" class="btn" hidden>部屋を 出る</button>
+        </div>
+    </div>
+
     <dialog id="zukan" class="zukan" aria-labelledby="zukan-title">
         <header class="zukan-head">
             <div>
@@ -289,9 +377,13 @@
 
     <script src="kanji-data.js"></script>
     <script src="jukugo-data.js"></script>
+    <script src="karuta.js"></script>
     <script src="lynx.js"></script>
     <script src="records.js"></script>
     <script src="cloud.js"></script>
     <script src="script.js"></script>
+    <script src="battle.js"></script>
+    <script src="battle-net.js"></script>
+    <script src="battle-ui.js"></script>
 </body>
 </html>

@@ -1399,6 +1399,254 @@ button {
     min-height: 2.75rem;
 }
 
+/* --- 意味かるた たいせん --- */
+.mode-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.battle-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.battle-head h1 {
+    font-size: 1.375rem;
+}
+
+.battle-view {
+    display: grid;
+    gap: 1rem;
+}
+
+.battle-view h2 {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.battle-view .seg {
+    margin-top: 0.4rem;
+}
+
+.battle-field {
+    display: grid;
+    gap: 0.4rem;
+    font-weight: 700;
+}
+
+.battle-input {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.5rem;
+    background: var(--paper);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+}
+
+.battle-create {
+    display: grid;
+    gap: 1rem;
+}
+
+.battle-main-btn {
+    min-height: 2.75rem;
+    justify-self: start;
+    min-width: 9rem;
+}
+
+.battle-join {
+    display: grid;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule-soft);
+}
+
+.battle-join-row,
+.battle-url-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.battle-join-row .battle-input,
+.battle-url-row .battle-input {
+    flex: 1;
+}
+
+.battle-code-input {
+    max-width: 10rem;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+}
+
+.battle-invite {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.battle-room-code {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 2.75rem;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+}
+
+.battle-qr {
+    width: 8.5rem;
+    height: 8.5rem;
+    box-shadow: 0 0 0 1px var(--rule);
+}
+
+.battle-players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.battle-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px var(--rule);
+    font-weight: 700;
+}
+
+.battle-player.is-offline {
+    color: var(--muted);
+}
+
+.battle-tag {
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+.battle-tag.is-me {
+    color: var(--red);
+}
+
+.battle-message {
+    color: var(--muted);
+    font-size: 0.9375rem;
+}
+
+.battle-message:empty {
+    display: none;
+}
+
+#battle-leave {
+    justify-self: start;
+}
+
+.battle-standings {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.battle-standing {
+    display: grid;
+    grid-template-columns: 2.75rem 1fr auto auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.battle-standing.is-me {
+    background: var(--mark-soft);
+}
+
+.battle-standing.is-offline {
+    color: var(--muted);
+}
+
+.battle-rank {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.battle-standing-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+}
+
+.battle-standing-cards {
+    font-weight: 700;
+}
+
+.battle-standing-faults {
+    color: var(--muted);
+    font-size: 0.8125rem;
+}
+
+/* On the quiz screen: the cards each player has taken */
+.battle-scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    flex: none;
+}
+
+.game:not(.is-battle) .battle-scores {
+    display: none;
+}
+
+.battle-score {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+}
+
+.battle-score.is-me {
+    box-shadow: 0 0 0 2px var(--ink);
+}
+
+.battle-score.is-offline {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+.battle-score-name {
+    max-width: 7em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.battle-score-num {
+    font-size: 1rem;
+}
+
+/* The card pressed, until the server says who was first */
+.karuta-card.is-picked {
+    box-shadow: 0 0 0 3px var(--rule);
+}
+
+.is-karuta #question.is-countdown {
+    font-family: var(--hand);
+    font-size: 2.5rem;
+}
+
 /* --- 漢字ずかん --- */
 .zukan {
     width: min(44rem, calc(100% - 1.5rem));
