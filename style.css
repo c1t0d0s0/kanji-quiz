@@ -1003,7 +1003,8 @@ button {
     min-height: 0;
 }
 
-/* The field: cards in columns, scrolled sideways when they do not all fit.
+/* The field: cards in columns, scrolled sideways when they do not all fit (and up and down
+   when even the rows do not fit, so every card can always be reached).
    The number of rows is set by script.js (fitKarutaRows), from the height the field really has. */
 .karuta-field {
     --rows: 3;
@@ -1020,13 +1021,18 @@ button {
     gap: 0.5rem;
     min-height: 0;
     padding: 0.6rem 0.75rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
+    overflow: auto;
+    overscroll-behavior: contain;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
     mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+}
+
+/* Taller than the field: line the cards up from the top, so the top row is never cut off
+   (centred, it would stick out above the field, where scrolling cannot reach) */
+.karuta-field.is-tall {
+    align-content: start;
 }
 
 .karuta-field.is-start {

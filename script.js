@@ -27,6 +27,7 @@ const buildSlots = document.getElementById('build-slots');
 const buildTiles = document.getElementById('build-tiles');
 const karutaArea = document.getElementById('karuta-area');
 const karutaField = document.getElementById('karuta-field');
+const karutaScrollHint = document.getElementById('karuta-scroll-hint');
 const feedbackEl = document.getElementById('feedback');
 const answerNoteEl = document.getElementById('answer-note');
 
@@ -973,7 +974,10 @@ function updateKarutaEdges() {
     const max = karutaField.scrollWidth - karutaField.clientWidth;
     karutaField.classList.toggle('is-start', karutaField.scrollLeft <= 1);
     karutaField.classList.toggle('is-end', karutaField.scrollLeft >= max - 1);
-    karutaArea.classList.toggle('is-scrollable', max > 1);
+    // Rows that do not fit (see fitKarutaRows); a few pixels into the padding do not count
+    const tall = karutaField.classList.contains('is-tall');
+    karutaArea.classList.toggle('is-scrollable', max > 1 || tall);
+    karutaScrollHint.textContent = tall ? (max > 1 ? '‹ よこ・たてに スクロール ›' : '‹ たてに スクロール ›') : '‹ よこに スクロール ›';
 }
 
 // As many rows of cards as fit in the field's real height. The height left for the field
@@ -986,8 +990,15 @@ function fitKarutaRows() {
     const gap = parseFloat(style.rowGap) || 0;
     // The cards may reach into the padding, but not past the edge
     const room = karutaField.clientHeight;
-    const rows = Math.max(1, Math.min(KARUTA_MAX_ROWS, Math.floor((room + gap) / (card.getBoundingClientRect().height + gap))));
+    const cardHeight = card.getBoundingClientRect().height;
+    const rows = Math.max(1, Math.min(KARUTA_MAX_ROWS, Math.floor((room + gap) / (cardHeight + gap))));
     if (karutaField.style.getPropertyValue('--rows') !== String(rows)) karutaField.style.setProperty('--rows', rows);
+    // Even one row does not fit (a very short screen): scroll up and down, starting from the top
+    karutaField.classList.toggle('is-tall', rows * cardHeight + (rows - 1) * gap > room + 0.5);
+    // And whatever the reason, the top row must never stick out above the field
+    if (karutaField.scrollTop === 0 && card.getBoundingClientRect().top < karutaField.getBoundingClientRect().top - 0.5) {
+        karutaField.classList.add('is-tall');
+    }
     updateKarutaEdges();
 }
 
