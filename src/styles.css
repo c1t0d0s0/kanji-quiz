@@ -967,6 +967,147 @@ button {
     white-space: nowrap;
 }
 
+/* --- 手書き --- */
+.is-tegaki #question-area {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+}
+
+/* The phrase: kana around the reading of the kanji to write */
+.is-tegaki #question {
+    padding: 0.35em 0.7em;
+    font-size: clamp(1.375rem, min(7.5vw, 5.5dvh), 2.25rem);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* Underlined with the red pen */
+.phrase-reading {
+    margin: 0 0.05em;
+    border-bottom: 3px solid var(--red);
+}
+
+.tegaki {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 0;
+}
+
+/* The space left for the square (TegakiArea.vue makes the square as big as it allows) */
+.tegaki-space {
+    flex: 1 1 0;
+    align-self: stretch;
+    display: grid;
+    place-items: center;
+    min-height: 8rem;
+}
+
+/* A practice square with dotted centre lines, like the kanji question. Writing in it must
+   not scroll or zoom the page, nor open the long-press menu */
+.tegaki-pad {
+    position: relative;
+    box-shadow: 0 0 0 2px var(--rule);
+    background:
+        repeating-linear-gradient(to right, var(--rule-soft) 0 6px, transparent 6px 12px) center / 100% 1px no-repeat,
+        repeating-linear-gradient(to bottom, var(--rule-soft) 0 6px, transparent 6px 12px) center / 1px 100% no-repeat,
+        var(--paper);
+    touch-action: none;
+    overscroll-behavior: contain;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.tegaki-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+/* After the answer the writing fades, and the model is drawn over it */
+.tegaki-canvas.is-locked {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.tegaki-model {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.tegaki-model polyline {
+    fill: none;
+    stroke: var(--red);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
+}
+
+/* The stroke order, at the start of each stroke */
+.tegaki-model text {
+    fill: var(--red);
+    font-family: var(--ui);
+    font-weight: 700;
+    font-size: 7px;
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 2px;
+}
+
+/* Marked like a test paper: a red circle around the square, or the square in red */
+.tegaki-pad.correct::after {
+    content: '';
+    position: absolute;
+    inset: -0.6rem;
+    border: 3px solid var(--red);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.tegaki-pad.incorrect {
+    background-color: var(--red-soft);
+}
+
+.tegaki-actions {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+}
+
+.tegaki-credit {
+    flex: none;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.tegaki-credit a,
+.howto-credit a {
+    color: inherit;
+}
+
+.howto-credit {
+    color: var(--muted);
+    font-size: 0.8125rem;
+}
+
+.is-tegaki #feedback-area {
+    height: auto;
+    min-height: 4.25rem;
+}
+
 /* --- 意味かるた --- */
 /* A wider screen has room for more of the field */
 .game.is-karuta {

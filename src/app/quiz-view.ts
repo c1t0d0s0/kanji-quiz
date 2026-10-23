@@ -3,6 +3,7 @@
 // which uses the same screen with the same field of cards.
 import { reactive } from 'vue';
 import type { JukugoItem } from '../data/jukugo';
+import type { Reibun } from '../data/reibun';
 import { kanjiReadings, type KanjiQuestion, type Mode, type Tile } from '../core/quiz';
 
 export type CardState = '' | 'is-correct' | 'is-wrong' | 'is-answer' | 'is-picked';
@@ -39,10 +40,14 @@ export const quiz = reactive({
     questionKind: 'text' as 'text' | 'kanji' | 'countdown',
     // 熟語くみたて: the meaning of the word, as a hint
     hint: null as string | null,
+    // 手書き: the phrase asking for the kanji ("(あか)いくつ"), shown instead of question
+    phrase: null as Reibun | null,
     options: [] as { text: string; state: '' | 'correct' | 'incorrect' }[],
     optionsKanji: false,
     optionsLocked: false,
     build: null as null | { tiles: Tile[]; slots: (number | null)[]; locked: boolean; mark: '' | 'correct' | 'incorrect' },
+    // 手書き: the model of KanjiVG (shown after the answer); the writing is kept by the canvas
+    tegaki: null as null | { model: number[][]; locked: boolean; mark: '' | 'correct' | 'incorrect' },
     karuta: null as null | {
         cards: KarutaCard[];
         // The card of the meaning asked, -1 before the first question

@@ -1,19 +1,30 @@
 // --- The one-player quiz: 漢字から読み, 読みから漢字, 熟語くみたて, 意味かるた ---
 import { reactive } from 'vue';
 import type { JukugoItem } from '../data/jukugo';
+import { reibunList, type Reibun } from '../data/reibun';
+import type { Stroke, Verdict } from '../core/handwriting';
 import * as Karuta from '../core/karuta';
 import * as Lynx from '../core/lynx';
 import {
-    KANJI_KINDS, KUMITATE_TIME_LIMIT, NEXT_QUESTION_MS, TIME_LIMIT, choicesFor, earnedRewards, formatBest, isRightWord,
+    KANJI_KINDS, KUMITATE_TIME_LIMIT, NEXT_QUESTION_MS, TEGAKI_TIME_LIMIT, TIME_LIMIT, choicesFor, earnedRewards, formatBest, isRightWord,
     kanjiKindOf, kanjiQuestions, makeTiles, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
 } from '../core/quiz';
 import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
 import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
+import { loadTegaki, tegakiPad, type TegakiKit } from './tegaki';
 
-export type Question = KanjiQuestion | JukugoItem;
+// A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
+export interface TegakiQuestion extends KanjiQuestion {
+    phrase: Reibun;
+}
+export type Question = KanjiQuestion | TegakiQuestion | JukugoItem;
 const isWord = (item: Question): item is JukugoItem => 'word' in item;
+// 手書き: the model and the judging, once loaded
+let tegakiKit: TegakiKit | null = null;
+// 手書き: more time to look at the model after the answer
+const TEGAKI_NEXT_MS = 3200;
 
 // What the result screen shows
 export const result = reactive({
@@ -49,9 +60,32 @@ let nextTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const current = () => questions[index];
 
+// One of the phrases of the kanji, and the reading it asks about
+function tegakiQuestion(item: KanjiQuestion): TegakiQuestion {
+    const phrases = reibunList.get(item.kanji) ?? [];
+    const phrase = shuffle([...phrases])[0] ?? { before: '', reading: item.targetReading, after: '' };
+    // The reading in the phrase may sound a little different (がっこう: がく → がっ)
+    const targetReading = item.readings.includes(phrase.reading)
+        ? phrase.reading
+        : item.readings.find(r => r.slice(1) === phrase.reading.slice(1) || r.slice(0, -1) === phrase.reading.slice(0, -1)) ?? phrase.reading;
+    return { ...item, targetReading, phrase };
+}
+
 // reviewItems: the questions missed last time, asked again with the same readings
 export function startQuiz(mode: Mode, reviewItems?: Question[]) {
     initAudio();
+    if (mode === 'tegaki' && !tegakiKit) {
+        loadTegaki()
+            .then(kit => {
+                tegakiKit = kit;
+                startQuiz(mode, reviewItems);
+            })
+            .catch(e => {
+                console.error('手書き could not be loaded', e);
+                alert('じゅんびが できませんでした。インターネットに つながってから、もう一度 おしてね。');
+            });
+        return;
+    }
     stopQuiz();
     quiz.mode = mode;
     quiz.battle = false;
@@ -70,6 +104,9 @@ export function startQuiz(mode: Mode, reviewItems?: Question[]) {
     } else if (mode === 'karuta') {
         questions = Karuta.pickWords(shuffle(Karuta.wordsFor(selection.grade)), [], selection.count);
         itemId = Records.itemId(mode, selection.grade, selection.count);
+    } else if (mode === 'tegaki') {
+        questions = kanjiQuestions(selection.grade, selection.count).map(tegakiQuestion);
+        itemId = Records.itemId(mode, selection.grade, selection.count);
     } else if (mode === 'kumitate') {
         const pool = shuffle(Karuta.wordsFor(selection.grade));
         questions = pool.slice(0, Math.min(selection.count, pool.length));
@@ -83,6 +120,8 @@ export function startQuiz(mode: Mode, reviewItems?: Question[]) {
     if (mode === 'karuta') layField(Karuta.fieldFor(questions as JukugoItem[], Karuta.wordsFor(selection.grade), shuffle));
     else quiz.karuta = null;
     quiz.build = null;
+    quiz.tegaki = null;
+    quiz.phrase = null;
     quiz.options = [];
     showScreen('quiz');
     displayQuestion();
@@ -121,6 +160,7 @@ function displayQuestion() {
     quiz.counter = `第${index + 1}問 / ${questions.length}問`;
     quiz.badge = `${item.grade}年生`;
     quiz.hint = quiz.mode === 'kumitate' && isWord(item) ? item.meaning : null;
+    quiz.phrase = null;
 
     if (quiz.mode === 'karuta' && isWord(item)) {
         quiz.question = item.meaning;
@@ -137,6 +177,15 @@ function displayQuestion() {
         return;
     }
     if (isWord(item)) return;
+    if (quiz.mode === 'tegaki' && 'phrase' in item && tegakiKit) {
+        quiz.phrase = item.phrase;
+        quiz.question = '';
+        quiz.questionKind = 'text';
+        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '' };
+        tegakiPad.clear();
+        startTimer(TEGAKI_TIME_LIMIT);
+        return;
+    }
     const mode = quiz.mode === 'y-to-k' ? 'y-to-k' : 'k-to-y';
     quiz.question = mode === 'k-to-y' ? item.kanji : item.targetReading;
     quiz.questionKind = mode === 'k-to-y' ? 'kanji' : 'text';
@@ -162,11 +211,11 @@ function startTimer(limit = TIME_LIMIT) {
 }
 
 // A little longer than the answer takes to read
-function goToNextQuestion() {
+function goToNextQuestion(ms = NEXT_QUESTION_MS) {
     nextTimeout = setTimeout(() => {
         index++;
         displayQuestion();
-    }, NEXT_QUESTION_MS);
+    }, ms);
 }
 
 function rightAnswer() {
@@ -277,6 +326,39 @@ function finishBuild(item: JukugoItem, built: string | null, message: string) {
     goToNextQuestion();
 }
 
+// --- 手書き ---
+export function submitTegaki(strokes: readonly Stroke[]) {
+    const t = quiz.tegaki;
+    if (!t || t.locked || !tegakiKit) return;
+    const item = current() as TegakiQuestion;
+    finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade));
+}
+
+// Says what went wrong, so the child knows what to look at in the model
+function tegakiMessage(verdict: Verdict) {
+    if (verdict.reason === 'count') return `${verdict.expected}画で 書こう`;
+    return 'おしい！ お手本と くらべよう';
+}
+
+// verdict: null when nothing was written in time
+function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
+    const t = quiz.tegaki;
+    if (!t) return;
+    clearInterval(timerInterval);
+    blurActive();
+    t.locked = true;
+    const ok = Boolean(verdict?.ok);
+    t.mark = ok ? 'correct' : 'incorrect';
+    if (ok) {
+        rightAnswer();
+        correctKanji.push(item.kanji);
+    } else {
+        wrongAnswer(item, !verdict || verdict.reason === 'empty' ? '時間切れ！' : tegakiMessage(verdict));
+    }
+    quiz.note = kanjiNote(item);
+    goToNextQuestion(TEGAKI_NEXT_MS);
+}
+
 // --- 意味かるた ---
 // Only one card can be taken for each question; a wrong one (おてつき) ends the question
 export function takeCard(cardIndex: number) {
@@ -309,6 +391,12 @@ function finishKaruta(item: JukugoItem, isCorrect: boolean, message: string) {
 
 function handleTimeout() {
     const item = current();
+    if (quiz.mode === 'tegaki' && quiz.tegaki && tegakiKit) {
+        // What was written in time is judged, as if 「こたえる」 had been pressed
+        const strokes = tegakiPad.strokes();
+        finishTegaki(item as TegakiQuestion, strokes.length > 0 ? tegakiKit.judge(strokes, quiz.tegaki.model, item.grade) : null);
+        return;
+    }
     if (quiz.mode === 'kumitate') {
         finishBuild(item as JukugoItem, null, '時間切れ！');
         return;

@@ -15,7 +15,8 @@ const MODES: { mode: Mode; title?: string; text: string }[] = [
     { mode: 'k-to-y', title: '漢字から読み', text: '表示された漢字の「読み」を答えよう！' },
     { mode: 'y-to-k', title: '読みから漢字', text: '表示された読みの「漢字」を答えよう！' },
     { mode: 'kumitate', text: '読みに 合う 漢字を ならべて、熟語を 作ろう！' },
-    { mode: 'karuta', title: '意味かるた', text: '意味に 合う 熟語の かるたを、場から さがして とろう！' }
+    { mode: 'karuta', title: '意味かるた', text: '意味に 合う 熟語の かるたを、場から さがして とろう！' },
+    { mode: 'tegaki', title: '手書き', text: '読みを 見て、漢字を 書こう！' }
 ];
 
 const bests = fromRecords(() =>
@@ -149,7 +150,9 @@ onMounted(() => {
                     <li id="howto-battle" :hidden="!battleAvailable">「たいせん」では、2〜8人で 同じ 場の かるたを とりあいます。いちばん はやく 正しい 札を おした 人が その 札を もらえます。おてつきすると、その 問題は お休みです。</li>
                     <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」と「読みから漢字」で べつべつに あつまります。ぜんぶ あつめよう！</li>
                     <li>学年の 漢字が「漢字から読み」でも「読みから漢字」でも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
+                    <li>「手書き」では、「(あか)いくつ」の かっこの 読みの 漢字を、マスに 指や ペンで 書いて「こたえる」を おします。1・2年生は すこし くずれても 正解に なり、学年が 上がるほど きびしく なります。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
+                    <li class="howto-credit">手書きの 字の形と 書き順は <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (© Ulrich Apel, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>) を もとに しています。</li>
                 </ul>
             </details>
         </aside>

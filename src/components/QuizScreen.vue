@@ -5,9 +5,11 @@ import { screen } from '../app/state';
 import { choose, placeTile, quitQuiz, returnTile, takeCard } from '../app/session';
 import { playing, quitBattle, takeBattleCard } from '../app/battle';
 import KarutaField from './KarutaField.vue';
+import TegakiArea from './TegakiArea.vue';
 
 const isKumitate = computed(() => quiz.mode === 'kumitate');
 const isKaruta = computed(() => quiz.mode === 'karuta');
+const isTegaki = computed(() => quiz.mode === 'tegaki');
 const next = computed(() => (quiz.build ? quiz.build.slots.indexOf(null) : -1));
 
 function quit() {
@@ -28,7 +30,7 @@ const optionClass = (i: number) => {
 
 <template>
     <div id="quiz-screen" class="screen game"
-        :class="{ active: screen === 'quiz', 'is-kumitate': isKumitate, 'is-karuta': isKaruta, 'is-battle': quiz.battle }">
+        :class="{ active: screen === 'quiz', 'is-kumitate': isKumitate, 'is-karuta': isKaruta, 'is-tegaki': isTegaki, 'is-battle': quiz.battle }">
         <header class="bar" id="quiz-header">
             <button type="button" id="quit-btn" class="home-btn" aria-label="ホームにもどる" @click="quit"><span aria-hidden="true">‹</span>ホーム</button>
             <div class="header-left">
@@ -50,7 +52,9 @@ const optionClass = (i: number) => {
         </ul>
 
         <div id="question-area">
-            <p id="question" :class="{ 'is-kanji': quiz.questionKind === 'kanji', 'is-countdown': quiz.questionKind === 'countdown' }">{{ quiz.question }}</p>
+            <!-- 手書き: the phrase, with the reading of the kanji to write in brackets -->
+            <p v-if="quiz.phrase" id="question" class="is-phrase">{{ quiz.phrase.before }}<span class="phrase-reading">({{ quiz.phrase.reading }})</span>{{ quiz.phrase.after }}</p>
+            <p v-else id="question" :class="{ 'is-kanji': quiz.questionKind === 'kanji', 'is-countdown': quiz.questionKind === 'countdown' }">{{ quiz.question }}</p>
             <!-- 熟語くみたて: the meaning of the word, as a hint -->
             <p id="question-hint" class="question-hint" :hidden="quiz.hint === null">{{ quiz.hint }}</p>
         </div>
@@ -77,7 +81,10 @@ const optionClass = (i: number) => {
         <!-- 意味かるた: the cards on the field, scrolled sideways on a small screen -->
         <KarutaField :hidden="!isKaruta" @take="take" />
 
-        <div id="options-area" class="options" :hidden="isKumitate || isKaruta">
+        <!-- 手書き: write the kanji in the square -->
+        <TegakiArea :hidden="!isTegaki" />
+
+        <div id="options-area" class="options" :hidden="isKumitate || isKaruta || isTegaki">
             <button v-for="(_, i) in 4" :key="i" type="button" :class="optionClass(i)" :disabled="quiz.optionsLocked" @click="choose(i)">{{ quiz.options[i]?.text }}</button>
         </div>
 

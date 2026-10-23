@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { jukugoDatabase, jukugoText } from '../src/data/jukugo';
+import { reibunList, reibunText } from '../src/data/reibun';
 
 const MIN_WORDS_PER_KANJI = 2;
 const MIN_WORDS_PER_GRADE = 20; // the longest quiz is 20 questions
@@ -42,6 +43,19 @@ const EXTRA_READINGS: Record<string, string[]> = {
     媛: ['ひめ'], 岐: ['ぎ'], 結: ['ゆい'], 最: ['さい'], 滋: ['し'], 初: ['はつ'], 城: ['き'], 井: ['じょう'], 達: ['たち'],
     置: ['おき'], 包: ['つつみ'], 良: ['ら'], 応: ['のう'], 織: ['おり'], 貸: ['かし'], 干: ['ひ'], 供: ['とも'], 皇: ['のう'],
     存: ['ぞん'], 届: ['とどけ'], 納: ['なっ']
+};
+
+// A reading as it may sound inside a word: 連濁 (か→が, は→ば/ぱ) unless it comes first,
+// and 促音化 (がく→がっ) unless it comes last
+const VOICED: Record<string, string> = { か: 'が', き: 'ぎ', く: 'ぐ', け: 'げ', こ: 'ご', さ: 'ざ', し: 'じ', す: 'ず', せ: 'ぜ', そ: 'ぞ', た: 'だ', ち: 'ぢじ', つ: 'づず', て: 'で', と: 'ど', は: 'ばぱ', ひ: 'びぴ', ふ: 'ぶぷ', へ: 'べぺ', ほ: 'ぼぽ' };
+const variants = (reading: string, first: boolean, last: boolean) => {
+    const out = new Set([reading]);
+    const starts = first ? [reading] : [reading, ...[...(VOICED[reading[0]] || '')].map(v => v + reading.slice(1))];
+    for (const r of starts) {
+        out.add(r);
+        if (!last && r.length >= 2 && 'つくちき'.includes(r[r.length - 1])) out.add(r.slice(0, -1) + 'っ');
+    }
+    return [...out];
 };
 
 const gradeOf = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
@@ -96,16 +110,6 @@ describe('熟語 list', () => {
     // The reading must split into a reading of each kanji, allowing 連濁 (か→が, は→ば/ぱ)
     // and 促音化 (がく→がっ). Words marked "*" (熟字訓) are skipped.
     it('each reading splits into readings of its kanji (fix it, add to EXTRA_READINGS, or mark 熟字訓 with *)', () => {
-        const VOICED: Record<string, string> = { か: 'が', き: 'ぎ', く: 'ぐ', け: 'げ', こ: 'ご', さ: 'ざ', し: 'じ', す: 'ず', せ: 'ぜ', そ: 'ぞ', た: 'だ', ち: 'ぢじ', つ: 'づず', て: 'で', と: 'ど', は: 'ばぱ', ひ: 'びぴ', ふ: 'ぶぷ', へ: 'べぺ', ほ: 'ぼぽ' };
-        const variants = (reading: string, first: boolean, last: boolean) => {
-            const out = new Set([reading]);
-            const starts = first ? [reading] : [reading, ...[...(VOICED[reading[0]] || '')].map(v => v + reading.slice(1))];
-            for (const r of starts) {
-                out.add(r);
-                if (!last && r.length >= 2 && 'つくちき'.includes(r[r.length - 1])) out.add(r.slice(0, -1) + 'っ');
-            }
-            return [...out];
-        };
         const splits = (chars: string[], reading: string, i = 0): boolean => {
             if (i === chars.length) return reading === '';
             return (readingsOf.get(chars[i]) || []).some(base =>
@@ -134,5 +138,59 @@ describe('熟語 list', () => {
 
     it(`at least ${MIN_WORDS_PER_GRADE} words in every grade`, () => {
         for (let g = 1; g <= 6; g++) expect(jukugoDatabase.filter(item => item.grade === g).length).toBeGreaterThanOrEqual(MIN_WORDS_PER_GRADE);
+    });
+});
+
+describe('例文 for the 手書き', () => {
+    it('every kanji has 1 to 3 phrases, under its grade', () => {
+        const sections = new Map<string, number>();
+        let section = 0;
+        for (const line of reibunText.split('\n')) {
+            const heading = line.match(/^#\s*([1-6])年生/);
+            if (heading) section = Number(heading[1]);
+            else if (line.trim()) sections.set(line.split('|')[0].trim(), section);
+        }
+        expect(kanjiDatabase.filter(k => !reibunList.has(k.kanji)).map(k => k.kanji).join('')).toBe('');
+        expect([...reibunList.keys()].filter(k => !gradeOf.has(k))).toEqual([]);
+        expect(reibunList.size).toBe(kanjiDatabase.length);
+        const wrong = kanjiDatabase.filter(k => sections.get(k.kanji) !== k.grade || !(reibunList.get(k.kanji)!.length >= 1 && reibunList.get(k.kanji)!.length <= 3));
+        expect(wrong.map(k => k.kanji).join('')).toBe('');
+    });
+
+    // The phrase must make the kanji clear without showing it: a reading of the kanji in brackets,
+    // the rest in kana (the okurigana too), at most 16 characters
+    it('each phrase: a reading of the kanji in brackets, the rest in kana', () => {
+        const errors: string[] = [];
+        for (const [kanji, phrases] of reibunList) {
+            for (const p of phrases) {
+                const text = `${p.before}(${p.reading})${p.after}`;
+                if (!p.reading) {
+                    errors.push(`${kanji}: no reading in brackets: ${p.before}`);
+                    continue;
+                }
+                const readings = readingsOf.get(kanji) || [];
+                const ok = readings.some(r => variants(r, p.before === '', false).includes(p.reading) || variants(r, p.before === '', true).includes(p.reading));
+                if (!ok) errors.push(`${kanji}: (${p.reading}) is not a reading of ${kanji} (${readings.join('・')}): ${text}`);
+                if (!/^[ぁ-ゖァ-ヺー、。]*$/.test(p.before + p.reading + p.after)) errors.push(`${kanji}: only kana outside the brackets: ${text}`);
+                if ([...p.before + p.reading + p.after].length > 16) errors.push(`${kanji}: longer than 16: ${text}`);
+            }
+            const shown = phrases.map(p => p.before + p.reading + p.after);
+            if (new Set(shown).size !== shown.length) errors.push(`${kanji}: the same phrase twice`);
+        }
+        expect(errors).toEqual([]);
+    });
+
+    // The same question for two kanji would have two right answers
+    it('no two kanji share a question', () => {
+        const owner = new Map<string, string>();
+        const shared: string[] = [];
+        for (const [kanji, phrases] of reibunList) {
+            for (const p of phrases) {
+                const question = `${p.before}(${p.reading})${p.after}`;
+                if (owner.has(question)) shared.push(`${question}: ${owner.get(question)} ${kanji}`);
+                owner.set(question, kanji);
+            }
+        }
+        expect(shared).toEqual([]);
     });
 });

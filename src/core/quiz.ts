@@ -5,8 +5,8 @@ import { jukugoDatabase, type JukugoItem } from '../data/jukugo';
 import * as Lynx from './lynx';
 import type { KanjiKind } from './records';
 
-// 'k-to-y': 漢字から読み, 'y-to-k': 読みから漢字, 'kumitate': 熟語くみたて, 'karuta': 意味かるた
-export type Mode = 'k-to-y' | 'y-to-k' | 'kumitate' | 'karuta';
+// 'k-to-y': 漢字から読み, 'y-to-k': 読みから漢字, 'kumitate': 熟語くみたて, 'karuta': 意味かるた, 'tegaki': 手書き
+export type Mode = 'k-to-y' | 'y-to-k' | 'kumitate' | 'karuta' | 'tegaki';
 export type Random = () => number;
 
 export const GRADES = [1, 2, 3, 4, 5, 6] as const;
@@ -14,6 +14,8 @@ export const TIME_LIMIT = 10;
 // 熟語くみたて: more time for longer words, and always 8 tiles (4 x 2)
 export const KUMITATE_TIME_LIMIT: Record<number, number> = { 2: 15, 3: 18, 4: 21 };
 export const TILE_COUNT = 8;
+// 手書き: time to write one kanji
+export const TEGAKI_TIME_LIMIT = 30;
 // The answer stays on the screen this long before the next question
 export const NEXT_QUESTION_MS = 1900;
 
@@ -113,7 +115,8 @@ export const KANJI_KINDS: Record<KanjiKind, { label: string }> = {
     yomi: { label: '漢字から読み' },
     kaki: { label: '読みから漢字' }
 };
-export const kanjiKindOf = (mode: Mode): KanjiKind => (mode === 'y-to-k' ? 'kaki' : 'yomi');
+// A kanji written by hand goes in the 読みから漢字 ずかん too
+export const kanjiKindOf = (mode: Mode): KanjiKind => (mode === 'y-to-k' || mode === 'tegaki' ? 'kaki' : 'yomi');
 
 // --- Rewards: accessories for the lynx, and はなまる in the ずかん ---
 // A grade's kanji all collected in both 読み and 書き, or 100 of a grade's 熟語 collected,
