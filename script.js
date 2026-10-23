@@ -982,7 +982,10 @@ function updateKarutaEdges() {
 
 // As many rows of cards as fit in the field's real height. The height left for the field
 // depends on more than the screen (the 対戦 also shows the players' scores), so it is measured.
+// In a 対戦 everyone must see the same field: the cards fill the rows column by column, so the
+// number of rows decides where each card lies, and it is the same for every device.
 const KARUTA_MAX_ROWS = 5;
+const KARUTA_BATTLE_ROWS = 3;
 function fitKarutaRows() {
     const card = karutaField.querySelector('.karuta-card');
     if (!card || karutaArea.hidden) return;
@@ -991,9 +994,11 @@ function fitKarutaRows() {
     // The cards may reach into the padding, but not past the edge
     const room = karutaField.clientHeight;
     const cardHeight = card.getBoundingClientRect().height;
-    const rows = Math.max(1, Math.min(KARUTA_MAX_ROWS, Math.floor((room + gap) / (cardHeight + gap))));
+    const rows = quizScreen.classList.contains('is-battle')
+        ? KARUTA_BATTLE_ROWS
+        : Math.max(1, Math.min(KARUTA_MAX_ROWS, Math.floor((room + gap) / (cardHeight + gap))));
     if (karutaField.style.getPropertyValue('--rows') !== String(rows)) karutaField.style.setProperty('--rows', rows);
-    // Even one row does not fit (a very short screen): scroll up and down, starting from the top
+    // The rows do not fit (a very short screen, or the 3 rows of a 対戦): scroll up and down, starting from the top
     karutaField.classList.toggle('is-tall', rows * cardHeight + (rows - 1) * gap > room + 0.5);
     // And whatever the reason, the top row must never stick out above the field
     if (karutaField.scrollTop === 0 && card.getBoundingClientRect().top < karutaField.getBoundingClientRect().top - 0.5) {
