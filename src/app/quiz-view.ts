@@ -47,7 +47,8 @@ export const quiz = reactive({
     optionsLocked: false,
     build: null as null | { tiles: Tile[]; slots: (number | null)[]; locked: boolean; mark: '' | 'correct' | 'incorrect' },
     // 手書き: the model of KanjiVG (shown after the answer); the writing is kept by the canvas
-    tegaki: null as null | { model: number[][]; locked: boolean; mark: '' | 'correct' | 'incorrect' },
+    // wrongStroke: the stroke written out of order or backwards (its number), shown in the model
+    tegaki: null as null | { model: number[][]; locked: boolean; mark: '' | 'correct' | 'incorrect'; wrongStroke: number | null },
     karuta: null as null | {
         cards: KarutaCard[];
         // The card of the meaning asked, -1 before the first question

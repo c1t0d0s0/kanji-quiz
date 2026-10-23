@@ -33,13 +33,15 @@ const gradeParam = new URLSearchParams(window.location.search).get('grade');
 // ?grade=3 chooses the grade until another one is picked (links from a class or homework)
 let urlGrade: string | null = gradeParam && VALID_GRADES.includes(gradeParam) ? gradeParam : null;
 
-export const selection = reactive({ grade: 'all', count: 10 });
+// strokeOrder: 手書き also judges the stroke order (off until turned on)
+export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false });
 
 // Back to the last selection (on the first paint, back on the home screen, and after a sync)
 export function restoreSelection() {
     const s = Records.getSettings();
     selection.grade = urlGrade || s.grade || selection.grade;
     selection.count = s.count || selection.count;
+    selection.strokeOrder = s.strokeOrder ?? false;
 }
 
 export function chooseGrade(grade: string) {
@@ -51,6 +53,11 @@ export function chooseGrade(grade: string) {
 export function chooseCount(count: number) {
     selection.count = count;
     Records.setSettings({ count: count as Records.Count });
+}
+
+export function chooseStrokeOrder(on: boolean) {
+    selection.strokeOrder = on;
+    Records.setSettings({ strokeOrder: on });
 }
 
 // --- Screens and dialogs ---

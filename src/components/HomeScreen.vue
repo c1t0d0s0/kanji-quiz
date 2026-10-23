@@ -3,10 +3,10 @@ import { computed, onMounted, ref } from 'vue';
 import { kanjiDatabase } from '../data/kanji';
 import { jukugoDatabase } from '../data/jukugo';
 import * as Lynx from '../core/lynx';
-import { GRADES, REWARDS, formatBest, type Mode } from '../core/quiz';
+import { GRADES, REWARDS, formatBest, recordMode, type Mode } from '../core/quiz';
 import * as Records from '../core/records';
 import { battleAvailable } from '../cloud';
-import { chooseCount, chooseGrade, earned, fromRecords, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
+import { chooseCount, chooseGrade, chooseStrokeOrder, earned, fromRecords, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
 import { startQuiz } from '../app/session';
 import { openBattle } from '../app/battle';
 import AccountBox from './AccountBox.vue';
@@ -20,7 +20,7 @@ const MODES: { mode: Mode; title?: string; text: string }[] = [
 ];
 
 const bests = fromRecords(() =>
-    Object.fromEntries(MODES.map(({ mode }) => [mode, Records.getBest(Records.itemId(mode, selection.grade, selection.count))])));
+    Object.fromEntries(MODES.map(({ mode }) => [mode, Records.getBest(Records.itemId(recordMode(mode, selection.strokeOrder), selection.grade, selection.count))])));
 const days = fromRecords(() => Records.activeDayCount());
 
 const counts = fromRecords(() => {
@@ -133,6 +133,13 @@ onMounted(() => {
                         <button type="button" id="battle-open" class="btn start-btn" :hidden="!battleAvailable" @click="openBattle()">たいせん</button>
                     </div>
                     <button v-else type="button" :id="`start-${m.mode}`" class="btn btn-primary start-btn" @click="startQuiz(m.mode)">スタート</button>
+                    <!-- 手書き: also judge the stroke order (and the direction of each stroke) -->
+                    <div v-if="m.mode === 'tegaki'" class="mode-option">
+                        <button type="button" id="stroke-order" class="order-toggle"
+                            :aria-pressed="selection.strokeOrder ? 'true' : 'false'" @click="chooseStrokeOrder(!selection.strokeOrder)">
+                            <span class="order-toggle-switch" aria-hidden="true"></span>書き順も みる<b class="order-toggle-state">{{ selection.strokeOrder ? 'ON' : 'OFF' }}</b>
+                        </button>
+                    </div>
                 </div>
             </section>
         </div>
@@ -150,7 +157,7 @@ onMounted(() => {
                     <li id="howto-battle" :hidden="!battleAvailable">「たいせん」では、2〜8人で 同じ 場の かるたを とりあいます。いちばん はやく 正しい 札を おした 人が その 札を もらえます。おてつきすると、その 問題は お休みです。</li>
                     <li>正解した 漢字と 熟語は「漢字ずかん」「熟語ずかん」に あつまります。漢字ずかんは「漢字から読み」と「読みから漢字」で べつべつに あつまります。ぜんぶ あつめよう！</li>
                     <li>学年の 漢字が「漢字から読み」でも「読みから漢字」でも ぜんぶ そろったり、学年の 熟語を 100 あつめたりすると、ヤマネコに つける ごほうびが もらえます。</li>
-                    <li>「手書き」では、「(あか)いくつ」の かっこの 読みの 漢字を、マスに 指や ペンで 書いて「こたえる」を おします。1・2年生は すこし くずれても 正解に なり、学年が 上がるほど きびしく なります。</li>
+                    <li>「手書き」では、「(あか)いくつ」の かっこの 読みの 漢字を、マスに 指や ペンで 書いて「こたえる」を おします。1・2年生は すこし くずれても 正解に なり、学年が 上がるほど きびしく なります。「書き順も みる」を ON に すると、書き順と 書く 向きが お手本と ちがうときは 不正解に なります。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
                     <li class="howto-credit">手書きの 字の形と 書き順は <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (© Ulrich Apel, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>) を もとに しています。</li>
                 </ul>

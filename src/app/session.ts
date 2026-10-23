@@ -7,7 +7,7 @@ import * as Karuta from '../core/karuta';
 import * as Lynx from '../core/lynx';
 import {
     KANJI_KINDS, KUMITATE_TIME_LIMIT, NEXT_QUESTION_MS, TEGAKI_TIME_LIMIT, TIME_LIMIT, choicesFor, earnedRewards, formatBest, isRightWord,
-    kanjiKindOf, kanjiQuestions, makeTiles, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
+    kanjiKindOf, kanjiQuestions, recordMode, makeTiles, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
 } from '../core/quiz';
 import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
@@ -23,6 +23,8 @@ export type Question = KanjiQuestion | TegakiQuestion | JukugoItem;
 const isWord = (item: Question): item is JukugoItem => 'word' in item;
 // 手書き: the model and the judging, once loaded
 let tegakiKit: TegakiKit | null = null;
+// 手書き: the stroke order is judged in this quiz (chosen on the home screen; kept for the review)
+let strokeOrder = false;
 // 手書き: more time to look at the model after the answer
 const TEGAKI_NEXT_MS = 3200;
 
@@ -106,7 +108,8 @@ export function startQuiz(mode: Mode, reviewItems?: Question[]) {
         itemId = Records.itemId(mode, selection.grade, selection.count);
     } else if (mode === 'tegaki') {
         questions = kanjiQuestions(selection.grade, selection.count).map(tegakiQuestion);
-        itemId = Records.itemId(mode, selection.grade, selection.count);
+        strokeOrder = selection.strokeOrder;
+        itemId = Records.itemId(recordMode(mode, strokeOrder), selection.grade, selection.count);
     } else if (mode === 'kumitate') {
         const pool = shuffle(Karuta.wordsFor(selection.grade));
         questions = pool.slice(0, Math.min(selection.count, pool.length));
@@ -158,7 +161,7 @@ function displayQuestion() {
     quiz.turn++;
     quiz.progress = (index / questions.length) * 100;
     quiz.counter = `第${index + 1}問 / ${questions.length}問`;
-    quiz.badge = `${item.grade}年生`;
+    quiz.badge = quiz.mode === 'tegaki' && strokeOrder ? `${item.grade}年生・書き順も` : `${item.grade}年生`;
     quiz.hint = quiz.mode === 'kumitate' && isWord(item) ? item.meaning : null;
     quiz.phrase = null;
 
@@ -181,7 +184,7 @@ function displayQuestion() {
         quiz.phrase = item.phrase;
         quiz.question = '';
         quiz.questionKind = 'text';
-        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '' };
+        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null };
         tegakiPad.clear();
         startTimer(TEGAKI_TIME_LIMIT);
         return;
@@ -331,12 +334,14 @@ export function submitTegaki(strokes: readonly Stroke[]) {
     const t = quiz.tegaki;
     if (!t || t.locked || !tegakiKit) return;
     const item = current() as TegakiQuestion;
-    finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade));
+    finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade, { strokeOrder }));
 }
 
 // Says what went wrong, so the child knows what to look at in the model
 function tegakiMessage(verdict: Verdict) {
     if (verdict.reason === 'count') return `${verdict.expected}画で 書こう`;
+    if (verdict.order?.kind === 'order') return `${verdict.order.stroke}画目の 書き順が ちがうよ`;
+    if (verdict.order?.kind === 'direction') return `${verdict.order.stroke}画目の 書く 向きが ちがうよ`;
     return 'おしい！ お手本と くらべよう';
 }
 
@@ -349,6 +354,8 @@ function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
     t.locked = true;
     const ok = Boolean(verdict?.ok);
     t.mark = ok ? 'correct' : 'incorrect';
+    // The stroke to look at in the model
+    t.wrongStroke = verdict?.order?.stroke ?? null;
     if (ok) {
         rightAnswer();
         correctKanji.push(item.kanji);
@@ -394,7 +401,7 @@ function handleTimeout() {
     if (quiz.mode === 'tegaki' && quiz.tegaki && tegakiKit) {
         // What was written in time is judged, as if 「こたえる」 had been pressed
         const strokes = tegakiPad.strokes();
-        finishTegaki(item as TegakiQuestion, strokes.length > 0 ? tegakiKit.judge(strokes, quiz.tegaki.model, item.grade) : null);
+        finishTegaki(item as TegakiQuestion, strokes.length > 0 ? tegakiKit.judge(strokes, quiz.tegaki.model, item.grade, { strokeOrder }) : null);
         return;
     }
     if (quiz.mode === 'kumitate') {

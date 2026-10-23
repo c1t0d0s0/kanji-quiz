@@ -26,6 +26,8 @@ export interface Settings {
     count: Count | null;
     // What the lynx wears (item ids from lynx.ts). null until something was chosen
     outfit: string[] | null;
+    // 手書き: also judge the stroke order. null until chosen (off)
+    strokeOrder: boolean | null;
     at: number;
 }
 
@@ -66,7 +68,7 @@ export function empty(): Snapshot {
         yomi: [],
         kaki: [],
         words: [],
-        settings: { grade: null, count: null, outfit: null, at: 0 },
+        settings: { grade: null, count: null, outfit: null, strokeOrder: null, at: 0 },
         progress: {}
     };
 }
@@ -91,6 +93,7 @@ function normalizeSettings(raw: unknown): Settings {
         outfit: Array.isArray(s.outfit)
             ? [...new Set(s.outfit.filter((id): id is string => typeof id === 'string' && /^[a-z]{1,20}$/.test(id)))].slice(0, 8)
             : null,
+        strokeOrder: typeof s.strokeOrder === 'boolean' ? s.strokeOrder : null,
         at: typeof s.at === 'number' ? s.at : 0
     };
 }
@@ -141,6 +144,7 @@ function mergeSettings(a: Settings, b: Settings): Settings {
         grade: newer.grade ?? older.grade,
         count: newer.count ?? older.count,
         outfit: newer.outfit ?? older.outfit,
+        strokeOrder: newer.strokeOrder ?? older.strokeOrder,
         at: Math.max(a.at, b.at)
     };
 }

@@ -14,8 +14,9 @@
 //            in the writing (未 and 末, 土 and 士 differ only in that)
 //   meets    pairs of strokes that clearly cross in the model but only touch or stay apart in
 //            the writing, or the other way round (牛 and 午, 矢 and 失 differ only in that)
-// The stroke order is not judged. Young children's kanji lean and wobble a lot, so the limits
-// are wide in 1年生 and narrow step by step up to 6年生.
+// The stroke order is judged only when asked (strokeOrder): then, in every grade, each stroke
+// must be written in its turn and the right way round. Young children's kanji lean and wobble a
+// lot, so the other limits are wide in 1年生 and narrow step by step up to 6年生.
 
 export interface Point {
     x: number;
@@ -46,6 +47,11 @@ export const LIMITS: Record<number, Limits> = {
 
 // A stroke without a pair costs as much as a stroke this far from its pair
 const UNPAIRED = 0.35;
+// Stroke order: written strokes are paired with the model's in their own turn unless another
+// pairing is better by more than this (a wobbly 三 must not look written out of order). A stroke
+// is written backwards when the other way round is closer by more than BACKWARDS
+const ORDER_TIE = 0.03;
+const BACKWARDS = 0.03;
 // A pair put together may match only this little worse than one of its two strokes alone
 const JOIN_SLACK = 0.01;
 // Points of each stroke, for comparing strokes
@@ -76,10 +82,23 @@ export interface Measures {
     expected: number;
 }
 
+// The first stroke not written in its turn, or written backwards (its number in the model)
+export interface OrderError {
+    stroke: number;
+    kind: 'order' | 'direction';
+}
+
 export interface Verdict extends Measures {
     ok: boolean;
-    // Why it was not accepted: nothing written, too many or too few strokes, or the shape
-    reason: 'ok' | 'empty' | 'count' | 'shape';
+    // Why it was not accepted: nothing written, too many or too few strokes, the shape, or
+    // (when the stroke order is judged) the stroke order
+    reason: 'ok' | 'empty' | 'count' | 'shape' | 'order';
+    order: OrderError | null;
+}
+
+export interface JudgeOptions {
+    // Also judge the stroke order (and the direction of each stroke)
+    strokeOrder?: boolean;
 }
 
 // The model of data/kanjivg.ts ([x1, y1, x2, y2, …] per stroke) as strokes
@@ -235,13 +254,15 @@ const points = (s: Stroke) => resample(s, STROKE_POINTS);
 // one after the other against one of the model). Only when the pair matches clearly better
 // than either of its strokes alone, and at least as well as a stroke must match (`match`).
 // At most `budget` times
+// groups: the strokes of the model (0-based) in each stroke of the model returned
 export function absorbJoins(written: Stroke[], model: Stroke[], budget: number, match: number, reversed: number) {
     let w = written, m = model, joins = 0;
+    let groups = model.map((_, i) => [i]);
     while (joins < budget && w.length !== m.length) {
         // The side with more strokes has two to put together
         const [many, few] = w.length > m.length ? [w, m] : [m, w];
         const fewPoints = few.map(points);
-        let best: { distance: number; merged: Stroke[] } | null = null;
+        let best: { distance: number; merged: Stroke[]; at: number } | null = null;
         for (let k = 0; k + 1 < many.length; k++) {
             const joined = points([...many[k], ...many[k + 1]]);
             const fits = fewPoints.some(fp => {
@@ -254,14 +275,19 @@ export function absorbJoins(written: Stroke[], model: Stroke[], budget: number, 
             // Of the pairs that could be one stroke, the one that leaves all the strokes paired best
             const merged = [...many.slice(0, k), [...many[k], ...many[k + 1]], ...many.slice(k + 2)];
             const distance = many === w ? strokeDistance(merged, m, reversed).distance : strokeDistance(w, merged, reversed).distance;
-            if (!best || distance < best.distance) best = { distance, merged };
+            if (!best || distance < best.distance) best = { distance, merged, at: k };
         }
         if (!best) break;
-        if (many === w) w = best.merged;
-        else m = best.merged;
+        if (many === w) {
+            w = best.merged;
+        } else {
+            m = best.merged;
+            const at = best.at;
+            groups = [...groups.slice(0, at), [...groups[at], ...groups[at + 1]], ...groups.slice(at + 2)];
+        }
         joins++;
     }
-    return { written: w, model: m, joins };
+    return { written: w, model: m, groups, joins };
 }
 
 // The strokes paired, and how far the pairs are on average. pairs = [written, model] indexes
@@ -334,18 +360,44 @@ export function mismatchedMeetings(written: readonly Stroke[], model: readonly S
     return mismatched;
 }
 
+// Written in the model's order? The same number of strokes on both sides (after the joins).
+// Each written stroke should be paired with the model's stroke in the same turn: that pairing is
+// kept unless another is clearly better. Then each long stroke must go the model's way.
+export function strokeOrderError(written: readonly Stroke[], model: readonly Stroke[], groups: number[][]): OrderError | null {
+    const a = written.map(points), b = model.map(points);
+    const n = a.length;
+    // Either way round: the direction is checked separately
+    const cost = a.map((sa, i) => b.map((sb, j) => strokeCost(sa, sb, 0) + (i === j ? 0 : ORDER_TIE)));
+    const { rowOf } = minimumPairing(cost);
+    for (let turn = 0; turn < n; turn++) {
+        // The model's stroke for this turn was written at another turn
+        if (rowOf[turn] !== turn) return { stroke: groups[turn][0] + 1, kind: 'order' };
+    }
+    for (let i = 0; i < n; i++) {
+        if (length(written[i]) < SHORT) continue;
+        let forward = 0, backward = 0;
+        for (let k = 0; k < STROKE_POINTS; k++) {
+            forward += dist(a[i][k], b[i][k]);
+            backward += dist(a[i][k], b[i][STROKE_POINTS - 1 - k]);
+        }
+        if ((backward + BACKWARDS * STROKE_POINTS) < forward) return { stroke: groups[i][0] + 1, kind: 'direction' };
+    }
+    return null;
+}
+
 export function limitsFor(grade: number): Limits {
     return LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
 }
 
-// All the measures, with the joins the grade allows. null when nothing was written
-export function measure(writing: readonly Stroke[], model: readonly (readonly number[])[], limits: Limits): Measures | null {
+// All the measures, with the joins the grade allows. null when nothing was written.
+// Also the strokes after the joins, for the stroke order
+export function measure(writing: readonly Stroke[], model: readonly (readonly number[])[], limits: Limits) {
     const w0 = normalize(writing);
     if (!w0) return null;
     const m0 = normalize(fromKanjiVG(model))!;
-    const { written, model: target, joins } = absorbJoins(w0, m0, limits.joins, limits.strokes, limits.reversed);
+    const { written, model: target, groups, joins } = absorbJoins(w0, m0, limits.joins, limits.strokes, limits.reversed);
     const { distance, pairs } = strokeDistance(written, target, limits.reversed);
-    return {
+    const measures: Measures = {
         shape: shapeDistance(w0, m0),
         strokes: distance,
         worst: worstStroke(w0, m0),
@@ -355,14 +407,21 @@ export function measure(writing: readonly Stroke[], model: readonly (readonly nu
         written: written.length,
         expected: target.length
     };
+    return { measures, written, target, groups };
 }
 
 // Judges the writing (in any units, e.g. canvas pixels) against the model of KanjiVG
-export function judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number): Verdict {
+export function judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options: JudgeOptions = {}): Verdict {
     const limits = limitsFor(grade);
-    const m = measure(writing, model, limits);
-    if (!m) return { ok: false, reason: 'empty', shape: Infinity, strokes: Infinity, worst: Infinity, flips: 0, meets: 0, joins: 0, written: 0, expected: model.length };
-    if (m.written !== m.expected) return { ...m, ok: false, reason: 'count' };
+    const found = measure(writing, model, limits);
+    if (!found) {
+        return { ok: false, reason: 'empty', order: null, shape: Infinity, strokes: Infinity, worst: Infinity, flips: 0, meets: 0, joins: 0, written: 0, expected: model.length };
+    }
+    const m = found.measures;
+    if (m.written !== m.expected) return { ...m, ok: false, reason: 'count', order: null };
     const ok = m.shape <= limits.shape && m.strokes <= limits.strokes && m.worst <= limits.worst && m.flips <= limits.flips && m.meets <= limits.meets;
-    return { ...m, ok, reason: ok ? 'ok' : 'shape' };
+    if (!ok) return { ...m, ok, reason: 'shape', order: null };
+    // The right kanji: and in the right order?
+    const order = options.strokeOrder ? strokeOrderError(found.written, found.target, found.groups) : null;
+    return { ...m, ok: !order, reason: order ? 'order' : 'ok', order };
 }

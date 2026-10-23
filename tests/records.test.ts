@@ -42,9 +42,19 @@ describe('older records', () => {
         expect([...Records.getCollected('kaki')]).toEqual(['三']);
     });
 
+    it('the stroke order of 手書き is off until turned on, and kept', () => {
+        expect(Records.getSettings().strokeOrder).toBeNull();
+        Records.setSettings({ strokeOrder: true });
+        expect(Records.getSettings().strokeOrder).toBe(true);
+        Records.setSettings({ strokeOrder: false });
+        expect(Records.load().settings.strokeOrder).toBe(false);
+        storage.setItem('kanji-quiz:v1', JSON.stringify({ settings: { strokeOrder: 'yes' } }));
+        expect(Records.getSettings().strokeOrder).toBeNull();
+    });
+
     it('settings without an outfit still load', () => {
         storage.setItem('kanji-quiz:v1', JSON.stringify({ settings: { grade: '3', count: 5, at: 1 } }));
-        expect(Records.getSettings()).toEqual({ grade: '3', count: 5, outfit: null, at: 1 });
+        expect(Records.getSettings()).toEqual({ grade: '3', count: 5, outfit: null, strokeOrder: null, at: 1 });
     });
 
     it('drops what is broken', () => {
@@ -56,7 +66,7 @@ describe('older records', () => {
         expect(s.activeDays).toEqual(['2026-10-01']);
         expect(s.yomi).toEqual(['一']);
         expect(s.words).toEqual(['学校']);
-        expect(s.settings).toEqual({ grade: null, count: null, outfit: ['ribbon'], at: 0 });
+        expect(s.settings).toEqual({ grade: null, count: null, outfit: ['ribbon'], strokeOrder: null, at: 0 });
         expect(Object.keys(s.progress)).toEqual(['b']);
     });
 });
@@ -65,13 +75,13 @@ describe('merge', () => {
     const a: Records.Snapshot = {
         ...Records.empty(),
         activeDays: ['2026-10-01'], yomi: ['一'], kaki: ['二'], words: ['学校'],
-        settings: { grade: '1', count: 5, outfit: ['ribbon'], at: 2 },
+        settings: { grade: '1', count: 5, outfit: ['ribbon'], strokeOrder: null, at: 2 },
         progress: { x: { best: 3, total: 5, at: 1 } }
     };
     const b: Records.Snapshot = {
         ...Records.empty(),
         activeDays: ['2026-10-02'], yomi: ['三'], kaki: [], words: ['先生'],
-        settings: { grade: '2', count: null, outfit: null, at: 1 },
+        settings: { grade: '2', count: null, outfit: null, strokeOrder: true, at: 1 },
         progress: { x: { best: 4, total: 5, at: 2 }, y: { best: 1, total: 5, at: 3 } }
     };
 
@@ -88,8 +98,8 @@ describe('merge', () => {
         expect(ab.yomi).toEqual(['一', '三']);
         expect(ab.words).toEqual(['先生', '学校']);
         expect(ab.progress.x.best).toBe(4);
-        // a is newer: its grade wins; the count is filled from b only when a has none
-        expect(ab.settings).toEqual({ grade: '1', count: 5, outfit: ['ribbon'], at: 2 });
+        // a is newer: its grade wins; what a has not chosen (the stroke order) comes from b
+        expect(ab.settings).toEqual({ grade: '1', count: 5, outfit: ['ribbon'], strokeOrder: true, at: 2 });
     });
 });
 

@@ -115,6 +115,9 @@ export const KANJI_KINDS: Record<KanjiKind, { label: string }> = {
     yomi: { label: '漢字から読み' },
     kaki: { label: '読みから漢字' }
 };
+// The records (じこベスト) of a mode: 手書き with the stroke order judged is kept apart, as it is harder
+export const recordMode = (mode: Mode, strokeOrder: boolean): string => (mode === 'tegaki' && strokeOrder ? 'tegaki-order' : mode);
+
 // A kanji written by hand goes in the 読みから漢字 ずかん too
 export const kanjiKindOf = (mode: Mode): KanjiKind => (mode === 'y-to-k' || mode === 'tegaki' ? 'kaki' : 'yomi');
 

@@ -1,10 +1,10 @@
 // --- 手書き: the strokes of KanjiVG and the judging ---
 // Loaded the first time a 手書き quiz starts, so the other quizzes do not wait for them.
-import type { Stroke, Verdict } from '../core/handwriting';
+import type { JudgeOptions, Stroke, Verdict } from '../core/handwriting';
 
 export interface TegakiKit {
     strokes: Record<string, number[][]>;
-    judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number): Verdict;
+    judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options?: JudgeOptions): Verdict;
 }
 
 let loading: Promise<TegakiKit> | null = null;

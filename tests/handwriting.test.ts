@@ -103,3 +103,54 @@ describe('judging handwriting', () => {
         expect(minimumPairing([[4, 1, 3], [2, 0, 5], [3, 2, 2]]).total).toBe(5);
     });
 });
+
+describe('judging the stroke order (when it is turned on)', () => {
+    const ON = { strokeOrder: true };
+
+    it('a kanji written in order is still right, also with two strokes in one go', () => {
+        const lost = kanjiDatabase.filter(k => {
+            const w = scribble(models[k.kanji], MESS.medium, k.kanji);
+            return judge(w, models[k.kanji], k.grade).ok && !judge(w, models[k.kanji], k.grade, ON).ok;
+        });
+        expect(lost.map(k => k.kanji).join('')).toBe('');
+        const many = every3.filter(k => models[k.kanji].length > 2);
+        const joined = (k: string) => joinStrokes(scribble(models[k], MESS.small, k), 0);
+        for (const k of many) {
+            const w = joined(k.kanji);
+            if (judge(w, models[k.kanji], 1).ok) expect(judge(w, models[k.kanji], 1, ON).ok, k.kanji).toBe(true);
+        }
+    }, 120000);
+
+    // Each grade where the shape is right (with the order off): wrong with the order on
+    it('two strokes written the other way round: wrong in every grade, and which stroke', () => {
+        let checked = 0;
+        for (const k of every3.filter(k => models[k.kanji].length >= 2)) {
+            const m = models[k.kanji];
+            const at = Math.max(0, Math.floor(m.length / 2) - 1);
+            const w = scribble(m, MESS.small, k.kanji);
+            [w[at], w[at + 1]] = [w[at + 1], w[at]];
+            for (const g of GRADES) {
+                if (!judge(w, m, g).ok) continue;
+                checked++;
+                expect(judge(w, m, g, ON), `${k.kanji} ${g}`).toMatchObject({ ok: false, reason: 'order', order: { kind: 'order', stroke: at + 1 } });
+            }
+        }
+        expect(checked).toBeGreaterThan(1900);
+    }, 300000);
+
+    it('a stroke written backwards: wrong, and which stroke', () => {
+        for (const k of every3) {
+            const m = models[k.kanji];
+            const w = scribble(m, MESS.small, k.kanji);
+            const longest = w.reduce((best, s, i) => (s.length > w[best].length ? i : best), 0);
+            w[longest] = [...w[longest]].reverse();
+            expect(judge(w, m, 1).ok, k.kanji).toBe(true);
+            expect(judge(w, m, 1, ON), k.kanji).toMatchObject({ ok: false, reason: 'order', order: { kind: 'direction', stroke: longest + 1 } });
+        }
+    });
+
+    it('a wrong shape is still said to be the shape', () => {
+        expect(judge(scribble(models['山'], MESS.small, 'x'), models['川'], 1, ON).reason).not.toBe('order');
+    });
+});
+

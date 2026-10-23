@@ -132,7 +132,7 @@ const model = computed(() => {
         let x = flat[0] - 7, y = flat[1] + 2;
         while (placed.some(q => Math.abs(q.x - x) < 6 && Math.abs(q.y - y) < 7)) x += 7;
         placed.push({ x, y });
-        return { points: points.join(' '), x, y, number: i + 1 };
+        return { points: points.join(' '), x, y, number: i + 1, wrong: t.wrongStroke === i + 1 };
     });
 });
 
@@ -171,8 +171,10 @@ watch(() => quiz.turn, clear);
                     @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @contextmenu.prevent></canvas>
                 <!-- The model of KanjiVG, with the stroke order -->
                 <svg v-if="model.length" class="tegaki-model" viewBox="0 0 109 109" aria-hidden="true">
+                    <!-- The stroke written out of order or backwards, marked with the highlighter -->
+                    <polyline v-for="s in model.filter(m => m.wrong)" :key="`w${s.number}`" class="is-wrong-mark" :points="s.points" />
                     <polyline v-for="s in model" :key="s.number" :points="s.points" />
-                    <text v-for="s in model" :key="`n${s.number}`" :x="s.x" :y="s.y">{{ s.number }}</text>
+                    <text v-for="s in model" :key="`n${s.number}`" :class="{ 'is-wrong': s.wrong }" :x="s.x" :y="s.y">{{ s.number }}</text>
                 </svg>
             </div>
         </div>
