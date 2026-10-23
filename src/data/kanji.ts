@@ -1,6 +1,12 @@
+export interface KanjiItem {
+    kanji: string;
+    readings: string[];
+    grade: number;
+}
+
 // --- Kanji Dataset for Elementary School (Grades 1 - 6) ---
 // 学年別漢字配当表 (2020年度からの 1,026字), in the order of the table
-const kanjiDatabase = [
+export const kanjiDatabase: readonly KanjiItem[] = [
     // --- Grade 1 (1年生: 80字) ---
     { kanji: "一", readings: ["いち", "ひと"], grade: 1 },
     { kanji: "右", readings: ["みぎ", "う", "ゆう"], grade: 1 },

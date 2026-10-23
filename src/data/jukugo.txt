@@ -1,11 +1,3 @@
-// --- 熟語 (2〜4字) for the 熟語くみたて, grouped by grade ---
-// One word per line: "熟語 よみ | いみ". A "*" after the reading marks 熟字訓 (今日 きょう *),
-// whose reading does not split into the readings of each kanji. The meaning is shown as a hint
-// while the word is asked, so it never contains the word's own kanji. The grade of a word is the
-// highest grade among its kanji. `node scripts/check-data.js` checks this list against kanji-data.js.
-const jukugoDatabase = (() => {
-    const gradeOf = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
-    return `
 # 1年生
 山口 やまぐち | ほんしゅうの いちばん にしに ある けん
 一年 いちねん | ねんを ひとつ。365日の あいだ
@@ -6128,9 +6120,3 @@ const jukugoDatabase = (() => {
 持論 じろん | いつもの いけん
 推論 すいろん | おしはかる こと
 本論 ほんろん | ほんとうに いいたい ところ
-`.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).map(line => {
-        const [head, meaning = ''] = line.split('|').map(part => part.trim());
-        const [word, reading, mark] = head.split(/\s+/);
-        return { word, reading, meaning, jukujikun: mark === '*', grade: Math.max(...[...word].map(k => gradeOf.get(k) || 0)) };
-    });
-})();

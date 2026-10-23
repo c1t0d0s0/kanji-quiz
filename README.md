@@ -42,41 +42,46 @@
 
 ## 🚀 使い方 / 起動方法
 
-外部ライブラリへのビルド依存がない静的Webサイト（Vanilla HTML/CSS/JS）です。任意のWebサーバーで起動できます。
+Vue 3 + TypeScript + Vite で作っています。Node.js 20.19 以上（推奨 24）が必要です。
 
-### ローカルサーバーでの起動例
+### 開発サーバーでの起動
 
 ```bash
 # リポジトリのクローン
 git clone https://github.com/c1t0d0s0/kanji-quiz.git
 cd kanji-quiz
 
-# Python 3 を使う場合
-python3 -m http.server 8000
-
-# Node.js (npx) を使う場合
-npx serve .
+npm install
+npm run dev      # http://localhost:5173 で開発サーバーが起動します
 ```
 
-ブラウザで `http://localhost:8000` を開きます。
+### ビルドとテスト
+
+```bash
+npm test         # 自動テスト（Vitest）。記録・同期・出題・対戦のルール・漢字/熟語データの検証
+npm run build    # 型の検査をしてから dist/ に公開用のファイルを作ります
+npm run preview  # できた dist/ を http://localhost:4173 で確認します
+```
+
+`dist/` の中身をそのまま任意のWebサーバーに置けば動きます（サブディレクトリでも動くよう相対パスで出力します）。
 
 ### 学年直接リンクの利用
 
 ```
-http://localhost:8000/?grade=1  # 1年生
-http://localhost:8000/?grade=2  # 2年生
-http://localhost:8000/?grade=3  # 3年生
-http://localhost:8000/?grade=4  # 4年生
-http://localhost:8000/?grade=5  # 5年生
-http://localhost:8000/?grade=6  # 6年生
-http://localhost:8000/?grade=all # 全学年
+http://localhost:5173/?grade=1  # 1年生
+http://localhost:5173/?grade=2  # 2年生
+http://localhost:5173/?grade=3  # 3年生
+http://localhost:5173/?grade=4  # 4年生
+http://localhost:5173/?grade=5  # 5年生
+http://localhost:5173/?grade=6  # 6年生
+http://localhost:5173/?grade=all # 全学年
 ```
 
 ---
 
 ## ⚙️ オプション設定 (`config.js`)
 
-Google AnalyticsやFirebaseによるクラウドアカウント同期を有効にする場合は、`config.example.js` をコピーして `config.js` を作成します。
+Google AnalyticsやFirebaseによるクラウドアカウント同期を有効にする場合は、`config.example.js` をコピーして `config.js` を作成します。`config.js` は `npm run dev` / `npm run build` のときに `vite.config.ts` が読み取り、ページに埋めこみます（同じ名前の環境変数があれば、そちらが優先されます）。
 
 ```bash
 cp config.example.js config.js
@@ -94,8 +99,13 @@ const FIREBASE_API_KEY = '';
 const FIREBASE_AUTH_DOMAIN = '';
 const FIREBASE_PROJECT_ID = '';
 const FIREBASE_APP_ID = '';
+
+// 意味かるた たいせん (Firebase Realtime Database)。上の4項目も必要です
+const FIREBASE_DATABASE_URL = '';
 ```
-※ `config.js` はGitの追跡対象外（`.gitignore`）です。設定しない場合でも全クイズ機能はローカルストレージで正常に動作します。
+※ `config.js` はGitの追跡対象外（`.gitignore`）です。設定しない場合でも全クイズ機能はローカルストレージで正常に動作します。設定を変えたら、開発サーバーを起動し直してください。
+
+開発中に手元の Firebase エミュレーターを使う場合は、`config.js` に `const FIREBASE_EMULATOR = true;` を書き、`npx firebase-tools emulators:start --only auth,firestore,database --project demo-kanji-quiz` で起動します。
 
 ---
 
@@ -103,18 +113,20 @@ const FIREBASE_APP_ID = '';
 
 ```text
 kanji-quiz/
-├── index.html              # メインHTML
-├── style.css               # スタイルシート（レスポンシブ、ダークモード、教科書体）
-├── script.js               # アプリケーション全体の制御ロジック・UIハンドラ
-├── records.js              # 成績・ずかん・設定・ごほうびの管理（localStorage / Firestore連携）
-├── cloud.js                # Firebase Authentication & Firestore クラウド同期処理
-├── kanji-data.js           # 小学校1〜6年生の漢字データ（1,026字）
-├── jukugo-data.js          # 各学年向けの熟語データ（6,100語以上）
-├── lynx.js                 # ヤマネコキャラクター描画・きせかえアイテム定義
+├── index.html              # Vite の入口（フォント、新しい版の確認）
+├── vite.config.ts          # Vue / Google タグ / Firebase 設定の埋めこみ / version.json の出力
 ├── config.example.js       # 設定ファイルのテンプレート
-├── scripts/
-│   ├── check-data.js       # 漢字・熟語データの整合性・学年範囲・重複等の検証スクリプト
-│   └── add-versions.js     # デプロイ用キャッシュバスティング（?v=ハッシュ）付与スクリプト
+├── database.rules.json     # 意味かるた たいせん の Realtime Database ルール
+├── public/                # ファビコン（favicon.svg / .ico、apple-touch-icon.png）。そのまま dist/ にコピーされます
+├── src/
+│   ├── main.ts, App.vue    # 起動と画面の組み立て
+│   ├── styles.css          # スタイルシート（レスポンシブ、ダークモード、教科書体）
+│   ├── data/               # 漢字データ（1,026字）と熟語データ jukugo.txt（6,100語以上）
+│   ├── core/               # 画面に関係ない処理（記録・同期・出題・かるた・対戦のルール・ヤマネコ・効果音）
+│   ├── cloud/              # Firebase（ログイン・Firestore 同期・対戦の通信）。必要なときだけ読みこみます
+│   ├── app/                # 画面の状態（クイズの進行・対戦の進行・選択中の学年など）
+│   └── components/         # 画面とダイアログの Vue コンポーネント
+├── tests/                  # Vitest のテスト（データの検証を含む）
 └── .github/workflows/
     └── deploy.yml          # GitHub Pages への自動デプロイワークフロー
 ```
@@ -123,24 +135,25 @@ kanji-quiz/
 
 ## 🧪 データの検証
 
-漢字データと熟語データの整合性（学年配当、読みの妥当性、意味・ヒントの重複など）をチェックするスクリプトが用意されています。
+漢字データと熟語データの整合性（学年配当、読みの妥当性、意味・ヒントの重複など）は、自動テストの一部（`tests/data.test.ts`）として検証されます。
 
 ```bash
-node scripts/check-data.js
+npm test
 ```
 
 ---
 
 ## 🚢 デプロイ (GitHub Pages)
 
-`main` ブランチにプッシュすると、GitHub Actions（`.github/workflows/deploy.yml`）によって自動的にデータ整合性チェックが実行され、GitHub Pages へデプロイされます。
+`main` ブランチにプッシュすると、GitHub Actions（`.github/workflows/deploy.yml`）によって自動的にテスト（データ整合性チェックを含む）とビルドが実行され、`dist/` が GitHub Pages へデプロイされます。
 
-リポジトリの Settings > Secrets and variables > Actions > Variables に以下の変数を登録することで、本番環境の `config.js` が自動生成されます。
+リポジトリの Settings > Secrets and variables > Actions > Variables に以下の変数を登録すると、ビルドのときにページに埋めこまれます。
 - `GTM_ID`
 - `FIREBASE_API_KEY`
 - `FIREBASE_AUTH_DOMAIN`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_APP_ID`
+- `FIREBASE_DATABASE_URL`（意味かるた たいせん）
 
 ---
 
