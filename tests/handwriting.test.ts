@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { strokes as models } from '../src/data/kanjivg';
-import { LIMITS, fromKanjiVG, judge, minimumPairing, type Stroke } from '../src/core/handwriting';
+import { LIMITS, fromKanjiVG, judge, minimumPairing, traceStroke, type Stroke } from '../src/core/handwriting';
 import { createRng } from '../src/core/battle';
 import { MESS, joinStrokes, scribble } from './helpers/scribble';
 
@@ -151,6 +151,55 @@ describe('judging the stroke order (when it is turned on)', () => {
 
     it('a wrong shape is still said to be the shape', () => {
         expect(judge(scribble(models['山'], MESS.small, 'x'), models['川'], 1, ON).reason).not.toBe('order');
+    });
+});
+
+describe('なぞり練習: one stroke traced over the model', () => {
+    // A careful child tracing on a square of 300 x 300 pixels
+    const TRACE = { scale: 0.03, turn: 0.02, lean: 0.02, move: 2, stretch: 0.08, wave: 1.2, shake: 0.5 };
+
+    it('every stroke of every kanji, traced with a little wobble, is right', () => {
+        const wrong: string[] = [];
+        for (const k of kanjiDatabase) {
+            const m = models[k.kanji];
+            scribble(m, TRACE, k.kanji).forEach((s, i) => {
+                if (traceStroke(s, m, i, 300) !== 'ok') wrong.push(`${k.kanji}${i + 1}`);
+            });
+        }
+        expect(wrong).toEqual([]);
+    });
+
+    it('the stroke before (not the one asked) is wrong, and backwards is said to be backwards', () => {
+        let other = 0, otherWrong = 0, back = 0, backCaught = 0;
+        for (const k of every3) {
+            const m = models[k.kanji];
+            scribble(m, TRACE, k.kanji).forEach((s, i) => {
+                if (i > 0) {
+                    other++;
+                    if (traceStroke(s, m, i - 1, 300) !== 'ok') otherWrong++;
+                }
+                if (Math.hypot(s[0].x - s[s.length - 1].x, s[0].y - s[s.length - 1].y) > 40) {
+                    back++;
+                    if (traceStroke([...s].reverse(), m, i, 300) === 'direction') backCaught++;
+                }
+            });
+        }
+        expect(otherWrong / other).toBeGreaterThan(0.99);
+        expect(backCaught / back).toBeGreaterThan(0.99);
+    });
+
+    it('where it is drawn matters (not its size or place in a box)', () => {
+        const one = models['一'];
+        const line = (dx: number, dy: number) => [{ x: (11 + dx) * 3, y: (54 + dy) * 3 }, { x: (97 + dx) * 3, y: (50 + dy) * 3 }];
+        expect(traceStroke(line(0, 0), one, 0, 327)).toBe('ok');
+        expect(traceStroke(line(0, 30), one, 0, 327)).toBe('off');
+        expect(traceStroke([...line(0, 0)].reverse(), one, 0, 327)).toBe('direction');
+        expect(traceStroke([], one, 0, 327)).toBe('off');
+        // The dot of 犬 goes from the top left too
+        const inu = models['犬'];
+        const dot = fromKanjiVG(inu)[3].map(p => ({ x: p.x * 3, y: p.y * 3 }));
+        expect(traceStroke(dot, inu, 3, 327)).toBe('ok');
+        expect(traceStroke([...dot].reverse(), inu, 3, 327)).toBe('direction');
     });
 });
 

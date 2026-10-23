@@ -13,7 +13,7 @@ import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
 import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
-import { loadTegaki, tegakiPad, type TegakiKit } from './tegaki';
+import { tegakiKitOrSay, tegakiPad, verdictMessage, type TegakiKit } from './tegaki';
 
 // A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
 export interface TegakiQuestion extends KanjiQuestion {
@@ -77,15 +77,11 @@ function tegakiQuestion(item: KanjiQuestion): TegakiQuestion {
 export function startQuiz(mode: Mode, reviewItems?: Question[]) {
     initAudio();
     if (mode === 'tegaki' && !tegakiKit) {
-        loadTegaki()
-            .then(kit => {
-                tegakiKit = kit;
-                startQuiz(mode, reviewItems);
-            })
-            .catch(e => {
-                console.error('手書き could not be loaded', e);
-                alert('じゅんびが できませんでした。インターネットに つながってから、もう一度 おしてね。');
-            });
+        void tegakiKitOrSay().then(kit => {
+            if (!kit) return;
+            tegakiKit = kit;
+            startQuiz(mode, reviewItems);
+        });
         return;
     }
     stopQuiz();
@@ -337,14 +333,6 @@ export function submitTegaki(strokes: readonly Stroke[]) {
     finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade, { strokeOrder }));
 }
 
-// Says what went wrong, so the child knows what to look at in the model
-function tegakiMessage(verdict: Verdict) {
-    if (verdict.reason === 'count') return `${verdict.expected}画で 書こう`;
-    if (verdict.order?.kind === 'order') return `${verdict.order.stroke}画目の 書き順が ちがうよ`;
-    if (verdict.order?.kind === 'direction') return `${verdict.order.stroke}画目の 書く 向きが ちがうよ`;
-    return 'おしい！ お手本と くらべよう';
-}
-
 // verdict: null when nothing was written in time
 function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
     const t = quiz.tegaki;
@@ -360,7 +348,7 @@ function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
         rightAnswer();
         correctKanji.push(item.kanji);
     } else {
-        wrongAnswer(item, !verdict || verdict.reason === 'empty' ? '時間切れ！' : tegakiMessage(verdict));
+        wrongAnswer(item, !verdict || verdict.reason === 'empty' ? '時間切れ！' : verdictMessage(verdict));
     }
     quiz.note = kanjiNote(item);
     goToNextQuestion(TEGAKI_NEXT_MS);

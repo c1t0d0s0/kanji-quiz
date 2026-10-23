@@ -385,6 +385,31 @@ export function strokeOrderError(written: readonly Stroke[], model: readonly Str
     return null;
 }
 
+// --- なぞり練習: one stroke traced over the model, where the model is drawn ---
+// Not put in a box of its own: the stroke must lie where the model's stroke is. size is the
+// side of the square it was written in (the model fills it, 109 x 109)
+export type TraceResult = 'ok' | 'off' | 'direction';
+// How far, on average, the traced stroke may be from the model's (a part of the square)
+export const TRACE_LIMIT = 0.07;
+
+export function traceStroke(written: Stroke, model: readonly (readonly number[])[], index: number, size: number): TraceResult {
+    if (written.length === 0 || !model[index] || size <= 0) return 'off';
+    const a = points(written.map(p => ({ x: p.x / size, y: p.y / size })));
+    const target = fromKanjiVG([model[index]])[0].map(p => ({ x: p.x / 109, y: p.y / 109 }));
+    const b = points(target);
+    let forward = 0, backward = 0;
+    for (let k = 0; k < STROKE_POINTS; k++) {
+        forward += dist(a[k], b[k]);
+        backward += dist(a[k], b[STROKE_POINTS - 1 - k]);
+    }
+    forward /= STROKE_POINTS;
+    backward /= STROKE_POINTS;
+    // A dot has no direction to speak of
+    if (length(target) < SHORT) return Math.min(forward, backward) <= TRACE_LIMIT ? 'ok' : 'off';
+    if (forward <= TRACE_LIMIT) return 'ok';
+    return backward <= TRACE_LIMIT ? 'direction' : 'off';
+}
+
 export function limitsFor(grade: number): Limits {
     return LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
 }

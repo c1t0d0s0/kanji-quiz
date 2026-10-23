@@ -61,7 +61,7 @@ export function chooseStrokeOrder(on: boolean) {
 }
 
 // --- Screens and dialogs ---
-export type Screen = 'home' | 'quiz' | 'result' | 'battle';
+export type Screen = 'home' | 'quiz' | 'result' | 'battle' | 'practice';
 export const screen = ref<Screen>('home');
 
 export function showScreen(name: Screen) {

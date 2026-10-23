@@ -3,8 +3,12 @@ import { computed } from 'vue';
 import * as Lynx from '../core/lynx';
 import { readingsText } from '../core/quiz';
 import { goHome, kisekaeOpen, outfit, screen } from '../app/state';
-import { result, review } from '../app/session';
+import { result, review, type TegakiQuestion } from '../app/session';
+import { startPractice } from '../app/practice';
 import Hanamaru from './Hanamaru.vue';
+
+// 手書き: the kanji missed can be traced over the model and written again
+const traceMissed = () => startPractice(result.missed as TegakiQuestion[], 'result');
 
 const what = computed(() => (result.mode === 'kumitate' || result.mode === 'karuta' ? '熟語' : '漢字'));
 const lynxSvg = computed(() => Lynx.svg(outfit.value));
@@ -65,6 +69,7 @@ const chipDelay = (i: number) => ({ animationDelay: `${0.4 + i * 0.08}s` });
             </section>
             <div class="result-actions">
                 <button type="button" id="review-btn" class="btn" :hidden="result.missed.length === 0" @click="review">まちがえた {{ what }}だけ もう一度</button>
+                <button type="button" id="trace-btn" class="btn" :hidden="result.mode !== 'tegaki' || result.missed.length === 0" @click="traceMissed">まちがえた 漢字を なぞって れんしゅう</button>
                 <button type="button" id="retry-btn" class="btn btn-primary" @click="goHome">ホームに もどる</button>
             </div>
         </div>

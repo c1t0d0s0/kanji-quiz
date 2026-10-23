@@ -2219,3 +2219,169 @@ button {
         transition: none;
     }
 }
+
+/* --- 手書きの なぞり練習 --- */
+/* The list: the six grades, and the kanji in squares like the ずかん */
+.practice-grades {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+@media (max-width: 34rem) {
+    .practice-grades {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.practice-grid .zukan-cell {
+    font-size: 1.5rem;
+}
+
+@media (hover: hover) {
+    .practice-grid .zukan-cell:hover {
+        background: var(--mark-soft);
+    }
+}
+
+.practice-grid .zukan-cell:active {
+    background: var(--mark);
+}
+
+.practice-counter {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.125rem;
+    white-space: nowrap;
+}
+
+/* The phrase of the kanji (like the 手書き question, smaller) and the two steps */
+.practice-head {
+    flex: none;
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+}
+
+.practice-phrase {
+    padding: 0.3em 0.7em;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: clamp(1.125rem, min(6vw, 4.5dvh), 1.75rem);
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.practice-steps {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.practice-steps li {
+    padding: 0.25em 0.8em;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    color: var(--muted);
+}
+
+.practice-steps li.is-now {
+    background: var(--ink);
+    box-shadow: none;
+    color: var(--on-ink);
+}
+
+.practice-steps li.is-done {
+    background: var(--mark-soft);
+    color: var(--ink);
+}
+
+/* What to trace, under the ink: the kanji faint, the stroke to trace now under the
+   highlighter, with a red dot where it starts, its number and an arrow for the way to go */
+.tegaki-guide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.tegaki-pad .tegaki-canvas {
+    position: relative;
+}
+
+.tegaki-guide polyline {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tegaki-guide .guide-faint {
+    stroke: var(--rule-soft);
+    stroke-width: 4;
+}
+
+.tegaki-guide .guide-now {
+    stroke: var(--mark);
+    stroke-width: 9;
+}
+
+.tegaki-guide .guide-arrow {
+    stroke: var(--red);
+    stroke-width: 1;
+    stroke-dasharray: 2.5 2;
+    opacity: 0.8;
+}
+
+.tegaki-guide marker path {
+    fill: var(--red);
+}
+
+.tegaki-guide .guide-start {
+    fill: var(--red);
+}
+
+.tegaki-guide .guide-number {
+    fill: var(--red);
+    font-family: var(--ui);
+    font-weight: 700;
+    font-size: 8px;
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 2px;
+}
+
+.practice-feedback {
+    flex: none;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 0.35rem;
+    min-height: 4.25rem;
+}
+
+.practice-message {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.practice-message.correct {
+    color: var(--red);
+}
+
+.practice-message.incorrect {
+    color: var(--muted);
+}
+
+/* While writing without the model the kanji is not shown, but its place stays */
+.answer-note.is-hidden {
+    visibility: hidden;
+}
