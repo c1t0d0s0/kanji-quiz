@@ -34,7 +34,8 @@ const gradeParam = new URLSearchParams(window.location.search).get('grade');
 let urlGrade: string | null = gradeParam && VALID_GRADES.includes(gradeParam) ? gradeParam : null;
 
 // strokeOrder: 手書き also judges the stroke order (off until turned on)
-export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false });
+// practiceTrace / practiceWrite: 手書きの練習 traces and writes each kanji this many times
+export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false, practiceTrace: 1, practiceWrite: 1 });
 
 // Back to the last selection (on the first paint, back on the home screen, and after a sync)
 export function restoreSelection() {
@@ -42,6 +43,8 @@ export function restoreSelection() {
     selection.grade = urlGrade || s.grade || selection.grade;
     selection.count = s.count || selection.count;
     selection.strokeOrder = s.strokeOrder ?? false;
+    selection.practiceTrace = s.practiceTrace ?? 1;
+    selection.practiceWrite = s.practiceWrite ?? 1;
 }
 
 export function chooseGrade(grade: string) {
@@ -58,6 +61,13 @@ export function chooseCount(count: number) {
 export function chooseStrokeOrder(on: boolean) {
     selection.strokeOrder = on;
     Records.setSettings({ strokeOrder: on });
+}
+
+export function choosePracticeCounts(trace: number, write: number) {
+    const clamp = (n: number) => Math.min(Records.PRACTICE_MAX, Math.max(1, Math.round(n)));
+    selection.practiceTrace = clamp(trace);
+    selection.practiceWrite = clamp(write);
+    Records.setSettings({ practiceTrace: selection.practiceTrace, practiceWrite: selection.practiceWrite });
 }
 
 // --- Screens and dialogs ---

@@ -28,6 +28,9 @@ export interface Settings {
     outfit: string[] | null;
     // 手書き: also judge the stroke order. null until chosen (off)
     strokeOrder: boolean | null;
+    // 手書きの練習: how many times to trace and to write without the model (1〜5). null until chosen (once)
+    practiceTrace: number | null;
+    practiceWrite: number | null;
     at: number;
 }
 
@@ -68,7 +71,7 @@ export function empty(): Snapshot {
         yomi: [],
         kaki: [],
         words: [],
-        settings: { grade: null, count: null, outfit: null, strokeOrder: null, at: 0 },
+        settings: { grade: null, count: null, outfit: null, strokeOrder: null, practiceTrace: null, practiceWrite: null, at: 0 },
         progress: {}
     };
 }
@@ -85,6 +88,9 @@ const normalizeCollected = (list: unknown): string[] => [...new Set(asArray(list
 const isWord = (v: unknown): v is string => typeof v === 'string' && [...v].length >= 2 && [...v].length <= 4;
 const normalizeWords = (list: unknown): string[] => [...new Set(asArray(list).filter(isWord))].sort();
 
+export const PRACTICE_MAX = 5;
+const isPracticeCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= PRACTICE_MAX;
+
 function normalizeSettings(raw: unknown): Settings {
     const s = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     return {
@@ -94,6 +100,8 @@ function normalizeSettings(raw: unknown): Settings {
             ? [...new Set(s.outfit.filter((id): id is string => typeof id === 'string' && /^[a-z]{1,20}$/.test(id)))].slice(0, 8)
             : null,
         strokeOrder: typeof s.strokeOrder === 'boolean' ? s.strokeOrder : null,
+        practiceTrace: isPracticeCount(s.practiceTrace) ? s.practiceTrace : null,
+        practiceWrite: isPracticeCount(s.practiceWrite) ? s.practiceWrite : null,
         at: typeof s.at === 'number' ? s.at : 0
     };
 }
@@ -145,6 +153,8 @@ function mergeSettings(a: Settings, b: Settings): Settings {
         count: newer.count ?? older.count,
         outfit: newer.outfit ?? older.outfit,
         strokeOrder: newer.strokeOrder ?? older.strokeOrder,
+        practiceTrace: newer.practiceTrace ?? older.practiceTrace,
+        practiceWrite: newer.practiceWrite ?? older.practiceWrite,
         at: Math.max(a.at, b.at)
     };
 }

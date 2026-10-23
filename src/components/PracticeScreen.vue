@@ -6,8 +6,11 @@ import { computed, ref, watch } from 'vue';
 import { kanjiDatabase } from '../data/kanji';
 import type { Stroke } from '../core/handwriting';
 import { GRADES } from '../core/quiz';
-import { goHome, screen } from '../app/state';
-import { exitPractice, isLast, nextKanji, practice, practiseKanji, retrace, submitWriting, traceStroke } from '../app/practice';
+import { PRACTICE_MAX } from '../core/records';
+import { goHome, screen, selection } from '../app/state';
+import {
+    exitPractice, isLast, nextKanji, practice, practiseKanji, restartTrace, retrace, rewrite, setPracticeCounts, submitWriting, traceStroke
+} from '../app/practice';
 import ModelStrokes from './ModelStrokes.vue';
 import WritingPad from './WritingPad.vue';
 
@@ -29,6 +32,25 @@ function answer() {
 
 // A new stage or a new kanji: a clean square
 watch(() => practice.turn, () => pad.value?.clear());
+
+// How many times to trace and to write (a small dialog)
+const countsDialog = ref<HTMLDialogElement | null>(null);
+const openCounts = () => countsDialog.value?.showModal();
+const closeCounts = () => countsDialog.value?.close();
+function onCountsClick(event: MouseEvent) {
+    // Tapping the dark backdrop also closes it
+    if (event.target === countsDialog.value) closeCounts();
+}
+const COUNT_ROWS = [
+    { key: 'trace', label: 'なぞる' },
+    { key: 'write', label: '見ないで 書く' }
+] as const;
+const countOf = (key: 'trace' | 'write') => (key === 'trace' ? selection.practiceTrace : selection.practiceWrite);
+function step(key: 'trace' | 'write', by: number) {
+    const trace = key === 'trace' ? selection.practiceTrace + by : selection.practiceTrace;
+    const write = key === 'write' ? selection.practiceWrite + by : selection.practiceWrite;
+    setPracticeCounts(trace, write);
+}
 </script>
 
 <template>
@@ -39,7 +61,9 @@ watch(() => practice.turn, () => pad.value?.clear());
             <header class="battle-head">
                 <button type="button" class="home-btn" @click="goHome"><span aria-hidden="true">‹</span>ホーム</button>
                 <h1>手書きの <ruby>練習<rt>れんしゅう</rt></ruby></h1>
+                <button type="button" class="btn practice-counts-open" @click="openCounts">回数</button>
             </header>
+            <p class="practice-counts-now">なぞる {{ selection.practiceTrace }}回・見ないで 書く {{ selection.practiceWrite }}回</p>
             <p class="result-sub">れんしゅうする 漢字を えらぼう。お手本を なぞってから、見ないで 書くよ。</p>
             <div class="seg practice-grades" role="group" aria-label="学年">
                 <button v-for="g in GRADES" :key="g" type="button" class="seg-option" :class="{ active: practice.listGrade === g }"
@@ -59,18 +83,19 @@ watch(() => practice.turn, () => pad.value?.clear());
                     <span class="practice-counter">れんしゅう {{ practice.index + 1 }} / {{ practice.queue.length }}</span>
                     <span class="badge">{{ item.grade }}年生</span>
                 </div>
+                <button type="button" class="btn practice-counts-open" @click="openCounts">回数</button>
             </header>
 
             <div class="practice-head">
                 <p v-if="item.phrase" class="practice-phrase">{{ item.phrase.before }}<span class="phrase-reading">({{ item.phrase.reading }})</span>{{ item.phrase.after }}</p>
                 <ol class="practice-steps">
-                    <li :class="{ 'is-now': practice.stage === 'trace', 'is-done': practice.stage !== 'trace' }">① なぞる</li>
-                    <li :class="{ 'is-now': practice.stage !== 'trace' }">② 見ないで 書く</li>
+                    <li :class="{ 'is-now': practice.stage === 'trace', 'is-done': practice.stage !== 'trace' }">① なぞる <b>{{ practice.traceRounds }}/{{ selection.practiceTrace }}</b></li>
+                    <li :class="{ 'is-now': practice.stage !== 'trace' }">② 見ないで 書く <b>{{ practice.writeRounds }}/{{ selection.practiceWrite }}</b></li>
                 </ol>
             </div>
 
             <div class="tegaki">
-                <WritingPad ref="pad" :locked="practice.stage === 'done'" :faded="practice.stage === 'done'" :mark="practice.mark"
+                <WritingPad ref="pad" :locked="practice.stage === 'done' || practice.waiting" :faded="practice.stage === 'done'" :mark="practice.mark"
                     @stroke="onStroke" @count="count = $event">
                     <template #under>
                         <ModelStrokes v-if="practice.stage === 'trace'" :model="practice.model" :guide="practice.traced" />
@@ -80,16 +105,20 @@ watch(() => practice.turn, () => pad.value?.clear());
                 </WritingPad>
                 <div class="tegaki-actions">
                     <template v-if="practice.stage === 'trace'">
-                        <button type="button" class="btn" :disabled="practice.traced === 0" @click="retrace">はじめから</button>
+                        <button type="button" class="btn" :disabled="practice.traced === 0 || practice.waiting" @click="restartTrace">はじめから</button>
                     </template>
                     <template v-else-if="practice.stage === 'write'">
-                        <button type="button" class="btn" :disabled="count === 0" @click="pad?.undo()">1画 もどす</button>
-                        <button type="button" class="btn" :disabled="count === 0" @click="pad?.clear()">けす</button>
-                        <button type="button" class="btn btn-primary" :disabled="count === 0" @click="answer">こたえる</button>
+                        <button type="button" class="btn" :disabled="count === 0 || practice.waiting" @click="pad?.undo()">1画 もどす</button>
+                        <button type="button" class="btn" :disabled="count === 0 || practice.waiting" @click="pad?.clear()">けす</button>
+                        <button type="button" class="btn btn-primary" :disabled="count === 0 || practice.waiting" @click="answer">こたえる</button>
                     </template>
                     <template v-else>
-                        <button v-if="practice.mark !== 'correct'" type="button" class="btn btn-primary" @click="retrace">もう一度 なぞる</button>
-                        <button type="button" class="btn" :class="{ 'btn-primary': practice.mark === 'correct' }" @click="nextKanji">{{ isLast() ? 'おわる' : 'つぎの 字へ' }}</button>
+                        <!-- A wrong writing: it does not count; write again, or trace once more first -->
+                        <template v-if="!practice.finished">
+                            <button type="button" class="btn btn-primary" @click="rewrite">もう一度 書く</button>
+                            <button type="button" class="btn" @click="retrace">もう一度 なぞる</button>
+                        </template>
+                        <button type="button" class="btn" :class="{ 'btn-primary': practice.finished }" @click="nextKanji">{{ isLast() ? 'おわる' : 'つぎの 字へ' }}</button>
                     </template>
                 </div>
                 <p class="tegaki-credit">字の形と書き順: <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (© Ulrich Apel)
@@ -104,5 +133,21 @@ watch(() => practice.turn, () => pad.value?.clear());
                 </p>
             </div>
         </template>
+
+        <dialog ref="countsDialog" class="zukan practice-counts" aria-labelledby="practice-counts-title" @click="onCountsClick">
+            <header class="zukan-head">
+                <h1 id="practice-counts-title">練習の 回数</h1>
+                <button type="button" class="btn" @click="closeCounts">とじる</button>
+            </header>
+            <div class="practice-counts-body">
+                <p class="zukan-detail">1つの 漢字を、なんかい なぞって、なんかい 書くかを えらぼう。書くのは 正しく 書けた 回だけ かぞえるよ。</p>
+                <div v-for="row in COUNT_ROWS" :key="row.key" class="practice-count-row">
+                    <span class="practice-count-label">{{ row.label }}</span>
+                    <button type="button" class="btn practice-count-step" :aria-label="`${row.label}の 回数を へらす`" :disabled="countOf(row.key) <= 1" @click="step(row.key, -1)">−</button>
+                    <b class="practice-count-num" aria-live="polite">{{ countOf(row.key) }}回</b>
+                    <button type="button" class="btn practice-count-step" :aria-label="`${row.label}の 回数を ふやす`" :disabled="countOf(row.key) >= PRACTICE_MAX" @click="step(row.key, 1)">＋</button>
+                </div>
+            </div>
+        </dialog>
     </div>
 </template>
