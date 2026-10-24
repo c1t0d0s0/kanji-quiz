@@ -7,7 +7,7 @@ import * as Karuta from '../core/karuta';
 import * as Lynx from '../core/lynx';
 import {
     KANJI_KINDS, KUMITATE_TIME_LIMIT, NEXT_QUESTION_MS, TEGAKI_TIME_LIMIT, TIME_LIMIT, choicesFor, earnedRewards, formatBest, isRightWord,
-    kanjiKindOf, kanjiQuestions, recordMode, makeTiles, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
+    kanjiKindOf, kanjiQuestions, recordMode, makeTiles, phraseMeaning, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
 } from '../core/quiz';
 import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
@@ -178,6 +178,7 @@ function displayQuestion() {
     if (isWord(item)) return;
     if (quiz.mode === 'tegaki' && 'phrase' in item && tegakiKit) {
         quiz.phrase = item.phrase;
+        quiz.hint = phraseMeaning(item.kanji, item.phrase);
         quiz.question = '';
         quiz.questionKind = 'text';
         quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null };

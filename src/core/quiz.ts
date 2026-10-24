@@ -2,6 +2,7 @@
 // Questions, the 4 choices, the tiles of the 熟語くみたて, the rank, and the rewards.
 import { kanjiDatabase, type KanjiItem } from '../data/kanji';
 import { jukugoDatabase, type JukugoItem } from '../data/jukugo';
+import type { Reibun } from '../data/reibun';
 import * as Lynx from './lynx';
 import type { KanjiKind } from './records';
 
@@ -26,9 +27,10 @@ export interface KanjiQuestion extends KanjiItem {
 
 export const kanjiReadings = new Map(kanjiDatabase.map(item => [item.kanji, item.readings]));
 const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
+const jukugoByReading = new Map<string, JukugoItem[]>();
+jukugoDatabase.forEach(item => jukugoByReading.set(item.reading, [...(jukugoByReading.get(item.reading) || []), item]));
 // Words with the same reading (科学 / 化学): building any of them is correct
-export const wordsByReading = new Map<string, string[]>();
-jukugoDatabase.forEach(item => wordsByReading.set(item.reading, [...(wordsByReading.get(item.reading) || []), item.word]));
+export const wordsByReading = new Map([...jukugoByReading].map(([reading, items]) => [reading, items.map(item => item.word)]));
 // Kanji sharing a reading make good look-alike tiles (校 こう → 高・交・考)
 const kanjiByReading = new Map<string, string[]>();
 kanjiDatabase.forEach(item => item.readings.forEach(r => kanjiByReading.set(r, [...(kanjiByReading.get(r) || []), item.kanji])));
@@ -92,6 +94,13 @@ export function makeTiles(item: JukugoItem, random: Random = Math.random): Tile[
 // Is the built word right: the word itself, or another word with the same reading
 export const isRightWord = (item: JukugoItem, built: string) =>
     built === item.word || (wordsByReading.get(item.reading) || []).includes(built);
+
+// 手書き: the meaning of the 熟語 a phrase spells (じ(どう) → 児童), shown as a hint, so a phrase
+// that sounds like another word (自動) still asks for one kanji. null when the phrase is no 熟語.
+export function phraseMeaning(kanji: string, phrase: Reibun): string | null {
+    const words = jukugoByReading.get(phrase.before + phrase.reading + phrase.after) || [];
+    return words.find(item => item.word.includes(kanji))?.meaning ?? null;
+}
 
 export interface Rank {
     label: string;

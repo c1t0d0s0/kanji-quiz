@@ -55,7 +55,7 @@ const optionClass = (i: number) => {
             <!-- 手書き: the phrase, with the reading of the kanji to write in brackets -->
             <p v-if="quiz.phrase" id="question" class="is-phrase">{{ quiz.phrase.before }}<span class="phrase-reading">({{ quiz.phrase.reading }})</span>{{ quiz.phrase.after }}</p>
             <p v-else id="question" :class="{ 'is-kanji': quiz.questionKind === 'kanji', 'is-countdown': quiz.questionKind === 'countdown' }">{{ quiz.question }}</p>
-            <!-- 熟語くみたて: the meaning of the word, as a hint -->
+            <!-- 熟語くみたて and 手書き: the meaning of the word, as a hint -->
             <p id="question-hint" class="question-hint" :hidden="quiz.hint === null">{{ quiz.hint }}</p>
         </div>
 

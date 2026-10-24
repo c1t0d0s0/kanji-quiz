@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { jukugoDatabase, jukugoText } from '../src/data/jukugo';
 import { reibunList, reibunText } from '../src/data/reibun';
+import { phraseMeaning } from '../src/core/quiz';
 
 const MIN_WORDS_PER_KANJI = 2;
 const MIN_WORDS_PER_GRADE = 20; // the longest quiz is 20 questions
@@ -192,5 +193,21 @@ describe('例文 for the 手書き', () => {
             }
         }
         expect(shared).toEqual([]);
+    });
+
+    // A phrase that sounds like a 熟語 written with another kanji in its place (じ(どう): 児童 or 自動)
+    // must spell a 熟語 of its own kanji too, whose meaning is then shown as a hint
+    it('a phrase that sounds like another word has a meaning to tell them apart', () => {
+        const wordsOf = new Map<string, string[]>();
+        jukugoDatabase.forEach(item => wordsOf.set(item.reading, [...(wordsOf.get(item.reading) || []), item.word]));
+        const reads = (k: string, reading: string) => (readingsOf.get(k) || []).some(r => variants(r, false, false).includes(reading) || variants(r, true, false).includes(reading));
+        const unclear: string[] = [];
+        for (const [kanji, phrases] of reibunList) {
+            for (const p of phrases) {
+                const others = (wordsOf.get(p.before + p.reading + p.after) || []).filter(word => !word.includes(kanji) && [...word].some(k => reads(k, p.reading)));
+                if (others.length > 0 && phraseMeaning(kanji, p) === null) unclear.push(`${kanji}: ${p.before}(${p.reading})${p.after} (${others.join('・')})`);
+            }
+        }
+        expect(unclear).toEqual([]);
     });
 });
