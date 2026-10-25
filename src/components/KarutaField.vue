@@ -30,10 +30,32 @@ function updateEdges() {
 const MAX_ROWS = 5;
 const BATTLE_ROWS = 3;
 
+// In a 対戦 the rows are fixed, so a big field (50 cards: 17 columns) is wider than most screens.
+// Where the cards can be made smaller and still be read easily, they are, so the whole field fits
+// across without scrolling sideways; where it would take smaller cards, the field scrolls. Only the
+// size of the cards changes: every card stays in the same row and column for everyone.
+const MIN_CARD_PX = 48;
+
+function fitCardWidth(f: HTMLElement) {
+    f.style.removeProperty('--card-w');
+    const card = f.querySelector('.karuta-card');
+    const count = quiz.karuta?.cards.length ?? 0;
+    if (!quiz.battle || !card || count === 0) return;
+    const style = getComputedStyle(f);
+    const gap = parseFloat(style.columnGap) || 0;
+    const room = f.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+    const columns = Math.ceil(count / BATTLE_ROWS);
+    const natural = card.getBoundingClientRect().width;
+    const fits = Math.floor(((room - (columns - 1) * gap) / columns) * 10) / 10;
+    if (fits < natural && fits >= MIN_CARD_PX) f.style.setProperty('--card-w', `${fits}px`);
+}
+
 function fitRows() {
     const f = field.value;
-    const card = f?.querySelector('.karuta-card');
-    if (!f || !card || props.hidden) return;
+    if (!f || props.hidden) return;
+    fitCardWidth(f);
+    const card = f.querySelector('.karuta-card');
+    if (!card) return;
     const style = getComputedStyle(f);
     const gap = parseFloat(style.rowGap) || 0;
     // The cards may reach into the padding, but not past the edge

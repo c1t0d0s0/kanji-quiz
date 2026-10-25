@@ -1197,6 +1197,12 @@ button {
     max-width: 72rem;
 }
 
+/* A 対戦 field has 3 rows only, so it is wide (17 columns for 20 questions): on a wide screen it
+   may take more of the width, and KarutaField.vue makes the cards a little smaller to fit it */
+.game.is-karuta.is-battle {
+    max-width: 96rem;
+}
+
 .is-karuta #question-area {
     flex: none;
     /* Always room for a meaning of 2 lines, so the field below keeps the same height
