@@ -52,11 +52,11 @@ describe('older records', () => {
         expect(Records.getSettings().strokeOrder).toBeNull();
     });
 
-    it('how many times to trace and to write in the 練習: 1 to 5, once until chosen', () => {
+    it('how many times to trace and to write in the 練習: 1 to 10, once until chosen', () => {
         expect(Records.getSettings()).toMatchObject({ practiceTrace: null, practiceWrite: null });
-        Records.setSettings({ practiceTrace: 3, practiceWrite: 5 });
-        expect(Records.getSettings()).toMatchObject({ practiceTrace: 3, practiceWrite: 5 });
-        for (const broken of [0, 6, 2.5, '3']) {
+        Records.setSettings({ practiceTrace: 3, practiceWrite: 10 });
+        expect(Records.getSettings()).toMatchObject({ practiceTrace: 3, practiceWrite: 10 });
+        for (const broken of [0, 11, 2.5, '3']) {
             storage.setItem('kanji-quiz:v1', JSON.stringify({ settings: { practiceTrace: broken, practiceWrite: broken } }));
             expect(Records.getSettings()).toMatchObject({ practiceTrace: null, practiceWrite: null });
         }

@@ -99,10 +99,10 @@ describe('なぞり練習', () => {
         expect(P.practice).toMatchObject({ stage: 'done', writeRounds: 2, finished: true });
     });
 
-    it('the counts are kept (1 to 5), and fewer during a kanji moves it on', async () => {
-        P.setPracticeCounts(9, 0);
-        expect([state.selection.practiceTrace, state.selection.practiceWrite]).toEqual([5, 1]);
-        expect(Records.getSettings()).toMatchObject({ practiceTrace: 5, practiceWrite: 1 });
+    it('the counts are kept (1 to 10), and fewer during a kanji moves it on', async () => {
+        P.setPracticeCounts(15, 0);
+        expect([state.selection.practiceTrace, state.selection.practiceWrite]).toEqual([10, 1]);
+        expect(Records.getSettings()).toMatchObject({ practiceTrace: 10, practiceWrite: 1 });
         P.setPracticeCounts(3, 3);
         await open('川');
         const strokes = drawn('川');
@@ -117,6 +117,18 @@ describe('なぞり練習', () => {
         P.setPracticeCounts(1, 1);
         expect(P.practice).toMatchObject({ stage: 'done', finished: true });
         P.setPracticeCounts(1, 1);
+    });
+
+    it('chosen practice counts are stored in settings and restored on reload', () => {
+        P.setPracticeCounts(7, 4);
+        expect(Records.getSettings()).toMatchObject({ practiceTrace: 7, practiceWrite: 4 });
+
+        // Simulate a new session / reload: selection starts with defaults, then restored from storage
+        state.selection.practiceTrace = 1;
+        state.selection.practiceWrite = 1;
+        state.restoreSelection();
+        expect(state.selection.practiceTrace).toBe(7);
+        expect(state.selection.practiceWrite).toBe(4);
     });
 
     it('the kanji missed in a 手書き quiz, one after the other, then back to the result', async () => {
