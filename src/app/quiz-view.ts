@@ -38,7 +38,7 @@ export const quiz = reactive({
     progress: 0,
     question: '',
     questionKind: 'text' as 'text' | 'kanji' | 'countdown',
-    // 熟語くみたて: the meaning of the word, as a hint
+    // 熟語くみたて and 手書き: the meaning of the word, as a hint
     hint: null as string | null,
     // 手書き: the phrase asking for the kanji ("(あか)いくつ"), shown instead of question
     phrase: null as Reibun | null,
