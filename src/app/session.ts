@@ -13,7 +13,7 @@ import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
 import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
-import { tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
+import { tegakiDebug, tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
 
 // A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
 export interface TegakiQuestion extends KanjiQuestion {
@@ -181,7 +181,7 @@ function displayQuestion() {
         quiz.hint = phraseMeaning(item.kanji, item.phrase);
         quiz.question = '';
         quiz.questionKind = 'text';
-        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null, extraStroke: null };
+        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null, extraStroke: null, debug: null };
         tegakiPad.clear();
         startTimer(TEGAKI_TIME_LIMIT);
         return;
@@ -354,7 +354,18 @@ function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
         wrongAnswer(item, !verdict || verdict.reason === 'empty' ? '時間切れ！' : verdictMessage(verdict));
     }
     quiz.note = kanjiNote(item);
+    if (tegakiDebug && tegakiKit) {
+        // Stays until 「つぎへ」, to read the measures and copy the writing
+        t.debug = { kanji: item.kanji, grade: item.grade, verdict, limits: tegakiKit.limitsFor(item.grade) };
+        return;
+    }
     goToNextQuestion(TEGAKI_NEXT_MS);
+}
+
+// ?debug: on to the next question
+export function nextTegaki() {
+    index++;
+    displayQuestion();
 }
 
 // --- 意味かるた ---

@@ -62,7 +62,10 @@ const INK_STEP = 0.02;
 // and at least this much the other way round in the writing
 const LONG_ENOUGH = 0.12;
 const CLEAR_RATIO = Math.log(1.3);
-const FLIPPED_RATIO = Math.log(1.1);
+const FLIPPED_RATIO = Math.log(1.15);
+// A kanji written a little wider or taller than the model (up to this much) is first brought to
+// the model's proportions: people write the same kanji in different proportions
+const ASPECT_SLACK = 1.33;
 // For meets: how deep two strokes cut each other is how far the crossing is from the nearer of
 // their ends. One crossing at least DEEP deep and the other less than SHALLOW (touching, or
 // apart) is a mismatch; in between is too close to call. Strokes shorter than SHORT are left out
@@ -553,12 +556,29 @@ export function limitsFor(grade: number): Limits {
     return LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
 }
 
+// Width / height of strokes put in a box (a line alone counts as square)
+function aspect(strokes: readonly Stroke[]) {
+    const pts = strokes.flat();
+    const w = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x));
+    const h = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
+    return w > 0.15 && h > 0.15 ? w / h : 1;
+}
+
+// The writing stretched to the model's proportions, within ASPECT_SLACK, and boxed again
+function toModelProportions(written: Stroke[], model: readonly Stroke[]) {
+    const by = Math.min(ASPECT_SLACK, Math.max(1 / ASPECT_SLACK, aspect(model) / aspect(written)));
+    if (Math.abs(by - 1) < 0.01) return written;
+    const sx = Math.sqrt(by), sy = 1 / sx;
+    return normalize(written.map(st => st.map(p => ({ x: (p.x - 0.5) * sx, y: (p.y - 0.5) * sy })))) ?? written;
+}
+
 // All the measures, with the joins the grade allows. null when nothing was written.
 // Also the strokes after the joins, for the stroke order
 export function measure(writing: readonly Stroke[], model: readonly (readonly number[])[], limits: Limits) {
-    const w0 = normalize(writing);
-    if (!w0) return null;
+    const boxed = normalize(writing);
+    if (!boxed) return null;
     const m0 = normalize(fromKanjiVG(model))!;
+    const w0 = toModelProportions(boxed, m0);
     const { written, model: target, groups, joins } = absorbJoins(w0, m0, limits.joins, limits.strokes, limits.reversed);
     const { distance, pairs } = strokeDistance(written, target, limits.reversed);
     const measures: Measures = {

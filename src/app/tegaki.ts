@@ -1,11 +1,16 @@
 // --- 手書き and なぞり練習: the strokes of KanjiVG and the judging ---
 // Loaded the first time a 手書き quiz or a 練習 starts, so the other quizzes do not wait for them.
-import type { Hint, JudgeOptions, Stroke, TraceResult, Verdict } from '../core/handwriting';
+import type { Hint, JudgeOptions, Limits, Stroke, TraceResult, Verdict } from '../core/handwriting';
+
+// ?debug in the address: after each 手書き answer, the measures and their limits, and a button to
+// copy the writing (to look into a judgement that seems wrong). The quiz waits for 「つぎへ」
+export const tegakiDebug = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
 
 export interface TegakiKit {
     strokes: Record<string, number[][]>;
     judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options?: JudgeOptions): Verdict;
     trace(written: Stroke, model: readonly (readonly number[])[], index: number, size: number): TraceResult;
+    limitsFor(grade: number): Limits;
 }
 
 let loading: Promise<TegakiKit> | null = null;
@@ -15,7 +20,8 @@ export function loadTegaki(): Promise<TegakiKit> {
         loading = Promise.all([import('../data/kanjivg'), import('../core/handwriting')]).then(([data, handwriting]) => ({
             strokes: data.strokes,
             judge: handwriting.judge,
-            trace: handwriting.traceStroke
+            trace: handwriting.traceStroke,
+            limitsFor: handwriting.limitsFor
         }));
         // Offline: try again next time
         loading.catch(() => {

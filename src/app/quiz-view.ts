@@ -4,6 +4,7 @@
 import { reactive } from 'vue';
 import type { JukugoItem } from '../data/jukugo';
 import type { Reibun } from '../data/reibun';
+import type { Limits, Verdict } from '../core/handwriting';
 import { kanjiReadings, type KanjiQuestion, type Mode, type Tile } from '../core/quiz';
 
 export type CardState = '' | 'is-correct' | 'is-wrong' | 'is-answer' | 'is-picked';
@@ -55,6 +56,8 @@ export const quiz = reactive({
         mark: '' | 'correct' | 'incorrect';
         wrongStroke: number | null;
         extraStroke: number | null;
+        // ?debug: what was judged, and with which limits
+        debug: null | { kanji: string; grade: number; verdict: Verdict | null; limits: Limits };
     },
     karuta: null as null | {
         cards: KarutaCard[];

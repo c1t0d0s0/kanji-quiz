@@ -2477,3 +2477,25 @@ button {
     margin-left: 0.3em;
     font-variant-numeric: tabular-nums;
 }
+
+/* ?debug: the measures of a 手書き answer */
+.tegaki-debug {
+    display: grid;
+    gap: 0.4rem;
+    width: 100%;
+    font-size: 0.75rem;
+}
+
+.tegaki-debug pre {
+    margin: 0;
+    padding: 0.4rem 0.6rem;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+    white-space: pre-wrap;
+    font-family: ui-monospace, monospace;
+}
+
+.tegaki-debug textarea {
+    width: 100%;
+    font-size: 0.6875rem;
+}

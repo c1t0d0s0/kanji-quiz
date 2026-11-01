@@ -162,7 +162,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => observer?.disconnect());
 
-defineExpose({ strokes: () => strokes, clear, undo });
+defineExpose({ strokes: () => strokes, size: () => size.value, clear, undo });
 </script>
 
 <template>
