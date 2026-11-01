@@ -95,7 +95,7 @@ function step(key: 'trace' | 'write', by: number) {
             </div>
 
             <div class="tegaki">
-                <WritingPad ref="pad" :locked="practice.stage === 'done' || practice.waiting" :faded="practice.stage === 'done'" :mark="practice.mark"
+                <WritingPad ref="pad" :locked="practice.stage === 'done' || practice.waiting" :faded="practice.stage === 'done'" :mark="practice.mark" :highlight="practice.stage === 'done' ? practice.extraStroke : null"
                     @stroke="onStroke" @count="count = $event">
                     <template #under>
                         <ModelStrokes v-if="practice.stage === 'trace'" :model="practice.model" :guide="practice.traced" />

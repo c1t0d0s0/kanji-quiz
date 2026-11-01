@@ -32,7 +32,8 @@ watch(() => quiz.turn, () => pad.value?.clear());
 
 <template>
     <div id="tegaki-area" class="tegaki" :hidden="hidden">
-        <WritingPad ref="pad" :hidden="hidden" :locked="locked" :faded="locked" :mark="quiz.tegaki?.mark" @count="count = $event">
+        <WritingPad ref="pad" :hidden="hidden" :locked="locked" :faded="locked" :mark="quiz.tegaki?.mark"
+            :highlight="quiz.tegaki?.locked ? quiz.tegaki.extraStroke : null" @count="count = $event">
             <!-- The model of KanjiVG, with the stroke order, after the answer -->
             <ModelStrokes v-if="quiz.tegaki?.locked" :model="quiz.tegaki.model" :wrong="quiz.tegaki.wrongStroke" />
         </WritingPad>

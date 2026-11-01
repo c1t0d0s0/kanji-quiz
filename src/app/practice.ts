@@ -9,7 +9,7 @@ import { reibunList, type Reibun } from '../data/reibun';
 import type { Stroke, TraceResult } from '../core/handwriting';
 import { initAudio, playSound } from '../core/sound';
 import { choosePracticeCounts, selection, showScreen } from './state';
-import { tegakiKitOrSay, verdictMessage, type TegakiKit } from './tegaki';
+import { tegakiKitOrSay, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
 
 export interface PracticeItem extends KanjiItem {
     phrase: Reibun | null;
@@ -43,6 +43,7 @@ export const practice = reactive({
     // After writing without the model: right or not, and the stroke to look at again
     mark: '' as '' | 'correct' | 'incorrect',
     wrongStroke: null as number | null,
+    extraStroke: null as number | null,
     // Goes up whenever the square must be cleaned
     turn: 0
 });
@@ -122,6 +123,7 @@ function startTrace() {
     practice.traced = 0;
     practice.mark = '';
     practice.wrongStroke = null;
+    practice.extraStroke = null;
     practice.turn++;
     say('お手本の 1画目を なぞろう');
 }
@@ -132,6 +134,7 @@ function startWrite() {
     practice.retracing = false;
     practice.mark = '';
     practice.wrongStroke = null;
+    practice.extraStroke = null;
     practice.turn++;
     say(practice.writeRounds === 0 ? 'こんどは 見ないで 書いてみよう' : 'もう一度 見ないで 書こう', 'correct');
 }
@@ -177,7 +180,9 @@ export function submitWriting(strokes: readonly Stroke[]) {
     const item = current();
     const verdict = kit.judge(strokes, practice.model, item.grade, { strokeOrder: true });
     practice.mark = verdict.ok ? 'correct' : 'incorrect';
-    practice.wrongStroke = verdict.order?.stroke ?? null;
+    const marks = verdictMarks(verdict);
+    practice.wrongStroke = marks.stroke;
+    practice.extraStroke = marks.written;
     if (!verdict.ok) {
         practice.stage = 'done';
         playSound(false);

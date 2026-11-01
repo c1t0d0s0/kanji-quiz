@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { strokes as models } from '../src/data/kanjivg';
-import { LIMITS, fromKanjiVG, judge, minimumPairing, traceStroke, type Stroke } from '../src/core/handwriting';
+import { LIMITS, crossingDepth, fromKanjiVG, judge, minimumPairing, traceStroke, type Hint, type Stroke } from '../src/core/handwriting';
 import { createRng } from '../src/core/battle';
 import { MESS, joinStrokes, scribble } from './helpers/scribble';
 
@@ -201,5 +201,141 @@ describe('なぞり練習: one stroke traced over the model', () => {
         expect(traceStroke(dot, inu, 3, 327)).toBe('ok');
         expect(traceStroke([...dot].reverse(), inu, 3, 327)).toBe('direction');
     });
+});
+
+describe('near misses: which stroke to look at again', () => {
+    // A kanji of KanjiVG ([x1, y1, …] per stroke) broken in one place, then written neatly
+    type Model = number[][];
+    const len = (st: number[]) => {
+        let n = 0;
+        for (let i = 2; i < st.length; i += 2) n += Math.hypot(st[i] - st[i - 2], st[i + 1] - st[i - 1]);
+        return n;
+    };
+    // The stroke up to a part of its length
+    const cutAt = (st: number[], part: number) => {
+        const total = len(st) * part;
+        const out = [st[0], st[1]];
+        let walked = 0;
+        for (let i = 2; i < st.length; i += 2) {
+            const seg = Math.hypot(st[i] - st[i - 2], st[i + 1] - st[i - 1]);
+            if (walked + seg >= total) {
+                const t = (total - walked) / seg;
+                out.push(st[i - 2] + (st[i] - st[i - 2]) * t, st[i - 1] + (st[i + 1] - st[i - 1]) * t);
+                return out;
+            }
+            out.push(st[i], st[i + 1]);
+            walked += seg;
+        }
+        return out;
+    };
+    // The stroke made longer at its end
+    const extend = (st: number[], by: number) => {
+        const n = st.length;
+        const dx = st[n - 2] - st[n - 4], dy = st[n - 1] - st[n - 3], d = Math.hypot(dx, dy) || 1;
+        return [...st, st[n - 2] + (dx / d) * by, st[n - 1] + (dy / d) * by];
+    };
+    const line = (st: number[]) => fromKanjiVG([st])[0];
+    const endGap = (a: number[], b: number[]) => Math.min(...line(b).map(q => Math.hypot(a[a.length - 2] - q.x, a[a.length - 1] - q.y)));
+
+    // Of the near misses that get a hint, how many point at the stroke broken
+    function check(name: string, make: (m: Model) => { broken: Model; right: (h: Hint) => boolean } | null) {
+        let hinted = 0, failed = 0, right = 0;
+        for (const k of every3) {
+            const m = models[k.kanji];
+            const made = make(m);
+            if (!made) continue;
+            const v = judge(scribble(made.broken, MESS.small, k.kanji + name), m, Math.max(3, k.grade));
+            if (v.ok) continue;
+            failed++;
+            if (!v.hint) continue;
+            hinted++;
+            if (made.right(v.hint)) right++;
+        }
+        return { failed, hinted, right };
+    }
+
+    it('a stroke left out: which one', () => {
+        const r = check('remove', m => {
+            if (m.length < 3) return null;
+            const at = Math.floor(m.length / 2);
+            return { broken: m.filter((_, i) => i !== at), right: h => h.kind === 'missing' && h.stroke === at + 1 };
+        });
+        expect(r.hinted / r.failed).toBeGreaterThan(0.9);
+        expect(r.right / r.hinted).toBeGreaterThan(0.9);
+    }, 120000);
+
+    it('the longest stroke written too short: that one', () => {
+        const r = check('shorten', m => {
+            if (m.length < 2) return null;
+            const at = m.reduce((b, st, i) => (len(st) > len(m[b]) ? i : b), 0);
+            return { broken: m.map((st, i) => (i === at ? cutAt(st, 0.55) : st)), right: h => h.stroke === at + 1 || h.other === at + 1 };
+        });
+        expect(r.hinted / r.failed).toBeGreaterThan(0.85);
+        expect(r.right / r.hinted).toBeGreaterThan(0.95);
+    }, 120000);
+
+    it('a stroke that should stop at another, pushed through: that one', () => {
+        const r = check('poke-out', m => {
+            for (let a = 0; a < m.length; a++) {
+                for (let b = 0; b < m.length; b++) {
+                    if (a === b || len(m[a]) < 15 || len(m[b]) < 15) continue;
+                    if (endGap(m[a], m[b]) < 2.5 && crossingDepth(line(m[a]), line(m[b])) < 1) {
+                        return { broken: m.map((st, i) => (i === a ? extend(st, 18) : st)), right: h => h.stroke === a + 1 };
+                    }
+                }
+            }
+            return null;
+        });
+        expect(r.right / r.hinted).toBeGreaterThan(0.9);
+    }, 120000);
+
+    it('a stroke that should go through another, stopped: one of the two', () => {
+        const r = check('no-poke', m => {
+            for (let a = 0; a < m.length; a++) {
+                for (let b = 0; b < m.length; b++) {
+                    if (a === b || crossingDepth(line(m[a]), line(m[b])) <= 25) continue;
+                    // Cut where it is nearest to the other stroke
+                    let at = 1, nearest = Infinity;
+                    for (let part = 0.05; part <= 0.95; part += 0.01) {
+                        const c = cutAt(m[a], part);
+                        const d = Math.min(...line(m[b]).map(q => Math.hypot(c[c.length - 2] - q.x, c[c.length - 1] - q.y)));
+                        if (d < nearest) [nearest, at] = [d, part];
+                    }
+                    return { broken: m.map((st, i) => (i === a ? cutAt(st, at) : st)), right: h => h.stroke === a + 1 || h.stroke === b + 1 };
+                }
+            }
+            return null;
+        });
+        expect(r.right / r.hinted).toBeGreaterThan(0.9);
+    }, 120000);
+
+    // The hardest to tell: a stroke moved aside may come near another one (about 75% right over
+    // every kanji; fewer kanji here)
+    it('a stroke moved aside: mostly that one', () => {
+        const r = check('shift', m => {
+            const at = Math.floor(m.length / 2);
+            return { broken: m.map((st, i) => (i === at ? st.map((v, j) => v + (j % 2 === 0 ? 12 : 0)) : st)), right: h => h.stroke === at + 1 };
+        });
+        expect(r.right / r.hinted).toBeGreaterThan(0.6);
+    }, 120000);
+
+    it('no hint for another kanji, a scribble or a right answer', () => {
+        const list = kanjiDatabase.filter((_, i) => i % 3 === 0);
+        let other = 0, otherHinted = 0;
+        list.forEach((k, i) => {
+            const o = list[(i + 7) % list.length];
+            const v = judge(scribble(models[o.kanji], MESS.small, o.kanji), models[k.kanji], 3);
+            if (!v.ok) {
+                other++;
+                if (v.hint) otherHinted++;
+            }
+            const rng = createRng(k.kanji);
+            const scrawl = Array.from({ length: models[k.kanji].length }, () => Array.from({ length: 8 }, () => ({ x: rng() * 300, y: rng() * 300 })));
+            expect(judge(scrawl, models[k.kanji], 3).hint, k.kanji).toBeNull();
+            const right = judge(scribble(models[k.kanji], MESS.small, k.kanji), models[k.kanji], k.grade);
+            if (right.ok) expect(right.hint).toBeNull();
+        });
+        expect(otherHinted / other).toBeLessThan(0.03);
+    }, 120000);
 });
 

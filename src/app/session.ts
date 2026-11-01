@@ -13,7 +13,7 @@ import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
 import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
-import { tegakiKitOrSay, tegakiPad, verdictMessage, type TegakiKit } from './tegaki';
+import { tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
 
 // A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
 export interface TegakiQuestion extends KanjiQuestion {
@@ -181,7 +181,7 @@ function displayQuestion() {
         quiz.hint = phraseMeaning(item.kanji, item.phrase);
         quiz.question = '';
         quiz.questionKind = 'text';
-        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null };
+        quiz.tegaki = { model: tegakiKit.strokes[item.kanji] ?? [], locked: false, mark: '', wrongStroke: null, extraStroke: null };
         tegakiPad.clear();
         startTimer(TEGAKI_TIME_LIMIT);
         return;
@@ -344,7 +344,9 @@ function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
     const ok = Boolean(verdict?.ok);
     t.mark = ok ? 'correct' : 'incorrect';
     // The stroke to look at in the model
-    t.wrongStroke = verdict?.order?.stroke ?? null;
+    const marks = verdictMarks(verdict);
+    t.wrongStroke = marks.stroke;
+    t.extraStroke = marks.written;
     if (ok) {
         rightAnswer();
         correctKanji.push(item.kanji);

@@ -88,12 +88,27 @@ export interface OrderError {
     kind: 'order' | 'direction';
 }
 
+// What is wrong in a near miss, and where. stroke (and other) are numbers in the model (1-based);
+// written is the index of a stroke as it was written (for a stroke the model does not have)
+//   missing  a stroke of the model left out                 extra    a stroke the model does not have
+//   longer   stroke should be longer than other             shorter  stroke should be shorter than other
+//   poke     stroke should go through other                 stop     stroke should stop at other
+//   place    stroke is away from its place (or its shape is)
+export interface Hint {
+    kind: 'missing' | 'extra' | 'longer' | 'shorter' | 'poke' | 'stop' | 'place';
+    stroke: number;
+    other?: number;
+    written?: number;
+}
+
 export interface Verdict extends Measures {
     ok: boolean;
     // Why it was not accepted: nothing written, too many or too few strokes, the shape, or
     // (when the stroke order is judged) the stroke order
     reason: 'ok' | 'empty' | 'count' | 'shape' | 'order';
     order: OrderError | null;
+    // A near miss: what to look at again (null when it is right, or too far off to tell)
+    hint: Hint | null;
 }
 
 export interface JudgeOptions {
@@ -301,18 +316,32 @@ export function strokeDistance(written: readonly Stroke[], model: readonly Strok
     return { distance: total / n, pairs };
 }
 
-export function flippedLengths(written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) {
+// The pairs of strokes whose lengths are the other way round: longer / shorter are the model's
+// strokes (indexes), by how much the writing is off (log of the ratios). culprit: of the two, the
+// one whose length is farther from the model's (compared with the whole writing), and whether it
+// was written too long
+export function flippedPairs(written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) {
     const kept = pairs.filter(([i, j]) => length(written[i]) >= LONG_ENOUGH && length(model[j]) >= LONG_ENOUGH);
-    let flipped = 0;
+    // How much longer the writing is than the model, over all the strokes paired
+    const scale = pairs.reduce((n, [i]) => n + length(written[i]), 0) / (pairs.reduce((n, [, j]) => n + length(model[j]), 0) || 1);
+    const off = ([i, j]: number[]) => Math.log(length(written[i]) / (length(model[j]) * scale));
+    const flipped: { longer: number; shorter: number; by: number; culprit: number; tooLong: boolean }[] = [];
     for (let x = 0; x < kept.length; x++) {
         for (let y = x + 1; y < kept.length; y++) {
             const rm = Math.log(length(model[kept[x][1]]) / length(model[kept[y][1]]));
             const rw = Math.log(length(written[kept[x][0]]) / length(written[kept[y][0]]));
-            if (Math.abs(rm) >= CLEAR_RATIO && Math.sign(rw) !== Math.sign(rm) && Math.abs(rw) >= FLIPPED_RATIO) flipped++;
+            if (Math.abs(rm) >= CLEAR_RATIO && Math.sign(rw) !== Math.sign(rm) && Math.abs(rw) >= FLIPPED_RATIO) {
+                const [longer, shorter] = rm > 0 ? [kept[x][1], kept[y][1]] : [kept[y][1], kept[x][1]];
+                const [px, py] = [off(kept[x]), off(kept[y])];
+                const [pair, by] = Math.abs(px) >= Math.abs(py) ? [kept[x], px] : [kept[y], py];
+                flipped.push({ longer, shorter, by: Math.abs(rm - rw), culprit: pair[1], tooLong: by > 0 });
+            }
         }
     }
     return flipped;
 }
+
+export const flippedLengths = (written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) => flippedPairs(written, model, pairs).length;
 
 // Where two line segments cut each other: the fractions along each, or null
 function cut(a: Point, b: Point, c: Point, d: Point): [number, number] | null {
@@ -347,18 +376,39 @@ export function crossingDepth(a: Stroke, b: Stroke) {
     return deepest;
 }
 
-export function mismatchedMeetings(written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) {
+// How near the ends of stroke a come to stroke b: small when a stops at b (a T or an L)
+function endGap(a: Stroke, b: Stroke) {
+    const pb = spread(b);
+    return Math.min(...[a[0], a[a.length - 1]].map(end => Math.min(...pb.map(q => dist(end, q)))));
+}
+
+// The pairs of strokes that cross in the model but not in the writing, or the other way round.
+// cross: they should cross. stroke: the one to look at, by the model's index: the one that stops
+// at the other where they should cross (it should go through), or that should stop at the other
+export function meetingMismatches(written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) {
     const kept = pairs.filter(([i, j]) => length(written[i]) >= SHORT && length(model[j]) >= SHORT);
-    let mismatched = 0;
+    const found: { cross: boolean; stroke: number; other: number }[] = [];
     for (let x = 0; x < kept.length; x++) {
         for (let y = x + 1; y < kept.length; y++) {
-            const inModel = crossingDepth(model[kept[x][1]], model[kept[y][1]]);
-            const inWriting = crossingDepth(written[kept[x][0]], written[kept[y][0]]);
-            if ((inModel >= DEEP && inWriting < SHALLOW) || (inWriting >= DEEP && inModel < SHALLOW)) mismatched++;
+            const [wa, ma] = kept[x], [wb, mb] = kept[y];
+            const inModel = crossingDepth(model[ma], model[mb]);
+            const inWriting = crossingDepth(written[wa], written[wb]);
+            if (inModel >= DEEP && inWriting < SHALLOW) {
+                // In the writing one of them stops at (or short of) the other: that one should go through
+                const aStops = endGap(written[wa], written[wb]) <= endGap(written[wb], written[wa]);
+                found.push({ cross: true, stroke: aStops ? ma : mb, other: aStops ? mb : ma });
+            } else if (inWriting >= DEEP && inModel < SHALLOW) {
+                // In the model one of them stops at the other: that one should not go through
+                const aStops = endGap(model[ma], model[mb]) <= endGap(model[mb], model[ma]);
+                found.push({ cross: false, stroke: aStops ? ma : mb, other: aStops ? mb : ma });
+            }
         }
     }
-    return mismatched;
+    return found;
 }
+
+export const mismatchedMeetings = (written: readonly Stroke[], model: readonly Stroke[], pairs: number[][]) =>
+    meetingMismatches(written, model, pairs).length;
 
 // Written in the model's order? The same number of strokes on both sides (after the joins).
 // Each written stroke should be paired with the model's stroke in the same turn: that pairing is
@@ -410,6 +460,95 @@ export function traceStroke(written: Stroke, model: readonly (readonly number[])
     return backward <= TRACE_LIMIT ? 'direction' : 'off';
 }
 
+// --- What went wrong in a near miss ---
+// Only when the writing is otherwise close: one or two of the measures over their limits, and the
+// shape not far off. Then the measure that failed tells which stroke to look at.
+const NEAR = 1.3;
+
+function farthestStroke(written: readonly Stroke[], model: readonly Stroke[]) {
+    const a = ink(written), b = ink(model);
+    const farthest = (strokes: readonly Stroke[], other: Point[]) => {
+        let best = { index: -1, by: -1 };
+        strokes.forEach((st, index) => {
+            const by = reach(spread(st), other);
+            if (by > best.by) best = { index, by };
+        });
+        return best;
+    };
+    return { model: farthest(model, a), written: farthest(written, b) };
+}
+
+interface Found {
+    measures: Measures;
+    // Put in boxes; and after the joins, with the model's strokes in each joined one
+    w0: Stroke[];
+    m0: Stroke[];
+    written: Stroke[];
+    target: Stroke[];
+    groups: number[][];
+    pairs: number[][];
+}
+
+export function diagnose(found: Found, limits: Limits): Hint | null {
+    const { measures: m, w0, m0, written, target, groups, pairs } = found;
+    const number = (j: number) => groups[j][0] + 1;
+    // How far the strokes paired are on average (a stroke left out or written too many aside)
+    const a = written.map(points), b = target.map(points);
+    const pairedMean = pairs.reduce((n, [i, j]) => n + strokeCost(a[i], b[j], limits.reversed), 0) / (pairs.length || 1);
+    // Too many or too few strokes: the one of the model left out, or the one written too many
+    if (m.written !== m.expected) {
+        if (Math.abs(m.written - m.expected) !== 1 || m.shape > limits.shape * NEAR || pairedMean > limits.strokes) return null;
+        const paired = new Set(pairs.map(([, j]) => j));
+        const pairedWritten = new Set(pairs.map(([i]) => i));
+        if (m.written < m.expected) {
+            const left = target.findIndex((_, j) => !paired.has(j));
+            return left < 0 ? null : { kind: 'missing', stroke: number(left) };
+        }
+        const far = farthestStroke(w0, m0).written;
+        const extra = written.findIndex((_, i) => !pairedWritten.has(i));
+        return extra < 0 || far.by < limits.worst / 2 ? null : { kind: 'extra', stroke: 0, written: far.index };
+    }
+    const over = [
+        m.worst > limits.worst, m.meets > limits.meets, m.flips > limits.flips, m.strokes > limits.strokes, m.shape > limits.shape
+    ].filter(Boolean).length;
+    if (over === 0 || over > 2 || m.shape > limits.shape * NEAR || m.strokes > limits.strokes * NEAR) return null;
+    const meetings = meetingMismatches(written, target, pairs);
+    const meetingHint = (miss: (typeof meetings)[number]): Hint => ({ kind: miss.cross ? 'poke' : 'stop', stroke: number(miss.stroke), other: number(miss.other) });
+    if (m.meets > limits.meets && meetings.length > 0) return meetingHint(meetings[0]);
+    if (m.flips > limits.flips) {
+        const flip = flippedPairs(written, target, pairs).sort((x, y) => y.by - x.by)[0];
+        if (flip) {
+            // A stroke too long because it goes through where it should stop (or too short because
+            // it stops where it should go through): say that
+            const same = meetings.find(miss => miss.stroke === flip.culprit);
+            if (same) return meetingHint(same);
+            const other = flip.culprit === flip.longer ? flip.shorter : flip.longer;
+            return { kind: flip.tooLong ? 'shorter' : 'longer', stroke: number(flip.culprit), other: number(other) };
+        }
+    }
+    // The stroke farthest from its place. Children mostly write in order, so a stroke is paired
+    // with the model's stroke of the same turn unless another is clearly closer (as in the stroke
+    // order): a stroke moved aside is not taken for its neighbour
+    const cost = a.map((sa, i) => b.map((sb, j) => strokeCost(sa, sb, limits.reversed) + (i === j ? 0 : ORDER_TIE)));
+    const { rowOf } = minimumPairing(cost);
+    // When one stroke is moved, the box of the whole kanji moves too and every stroke seems a
+    // little off: what all the strokes share (the median shift) is taken away first
+    const centre = (st: Stroke) => ({ x: st.reduce((n, p) => n + p.x, 0) / st.length, y: st.reduce((n, p) => n + p.y, 0) / st.length });
+    const shifts = rowOf.map((i, j) => {
+        const cw = centre(a[i]), cm = centre(b[j]);
+        return { x: cw.x - cm.x, y: cw.y - cm.y };
+    });
+    const median = (v: number[]) => [...v].sort((p, q) => p - q)[Math.floor(v.length / 2)];
+    const shared = { x: median(shifts.map(d => d.x)), y: median(shifts.map(d => d.y)) };
+    let worst = { j: -1, by: -1 };
+    rowOf.forEach((i, j) => {
+        const moved = b[j].map(p => ({ x: p.x + shared.x, y: p.y + shared.y }));
+        const by = strokeCost(a[i], moved, limits.reversed);
+        if (by > worst.by) worst = { j, by };
+    });
+    return worst.j < 0 ? null : { kind: 'place', stroke: number(worst.j) };
+}
+
 export function limitsFor(grade: number): Limits {
     return LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
 }
@@ -432,7 +571,7 @@ export function measure(writing: readonly Stroke[], model: readonly (readonly nu
         written: written.length,
         expected: target.length
     };
-    return { measures, written, target, groups };
+    return { measures, w0, m0, written, target, groups, pairs };
 }
 
 // Judges the writing (in any units, e.g. canvas pixels) against the model of KanjiVG
@@ -440,13 +579,13 @@ export function judge(writing: readonly Stroke[], model: readonly (readonly numb
     const limits = limitsFor(grade);
     const found = measure(writing, model, limits);
     if (!found) {
-        return { ok: false, reason: 'empty', order: null, shape: Infinity, strokes: Infinity, worst: Infinity, flips: 0, meets: 0, joins: 0, written: 0, expected: model.length };
+        return { ok: false, reason: 'empty', order: null, hint: null, shape: Infinity, strokes: Infinity, worst: Infinity, flips: 0, meets: 0, joins: 0, written: 0, expected: model.length };
     }
     const m = found.measures;
-    if (m.written !== m.expected) return { ...m, ok: false, reason: 'count', order: null };
+    if (m.written !== m.expected) return { ...m, ok: false, reason: 'count', order: null, hint: diagnose(found, limits) };
     const ok = m.shape <= limits.shape && m.strokes <= limits.strokes && m.worst <= limits.worst && m.flips <= limits.flips && m.meets <= limits.meets;
-    if (!ok) return { ...m, ok, reason: 'shape', order: null };
+    if (!ok) return { ...m, ok, reason: 'shape', order: null, hint: diagnose(found, limits) };
     // The right kanji: and in the right order?
     const order = options.strokeOrder ? strokeOrderError(found.written, found.target, found.groups) : null;
-    return { ...m, ok: !order, reason: order ? 'order' : 'ok', order };
+    return { ...m, ok: !order, reason: order ? 'order' : 'ok', order, hint: null };
 }

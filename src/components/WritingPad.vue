@@ -3,7 +3,7 @@
 // Used by the 手書き quiz and the なぞり練習. The writing stays here (not in the reactive state:
 // a stroke has hundreds of points); the parent reads it through the exposed functions.
 // Pictures go under the ink (slot "under": what to trace) or over it (default slot: the model).
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Point, Stroke } from '../core/handwriting';
 
 const props = defineProps<{
@@ -14,6 +14,8 @@ const props = defineProps<{
     faded?: boolean;
     // '' | 'correct' | 'incorrect': marked like a test paper
     mark?: string;
+    // A stroke as written (its index) to point at: one the model does not have
+    highlight?: number | null;
 }>();
 const emit = defineEmits<{
     // A stroke was finished, in CSS pixels of a square of the given size
@@ -79,6 +81,7 @@ function changed() {
 function clear() {
     strokes = [];
     pointer = null;
+    highlighted.value = '';
     redraw();
     changed();
 }
@@ -129,6 +132,14 @@ function up(e: PointerEvent) {
     emit('stroke', strokes[strokes.length - 1], size.value);
 }
 
+// The stroke pointed at, drawn over the faded writing with a red dotted line
+const highlighted = ref('');
+function updateHighlight() {
+    const stroke = props.highlight === null || props.highlight === undefined ? null : strokes[props.highlight];
+    highlighted.value = stroke ? stroke.map(p => `${p.x},${p.y}`).join(' ') : '';
+}
+watch(() => props.highlight, updateHighlight);
+
 // The square fills the space it is given
 let observer: ResizeObserver | null = null;
 function fit() {
@@ -140,6 +151,7 @@ function fit() {
         // Stretch what was written to the new size
         const ratio = canvas.value && canvas.value.clientWidth ? next / canvas.value.clientWidth : 1;
         if (ratio !== 1) strokes = strokes.map(st => st.map(p => ({ x: p.x * ratio, y: p.y * ratio })));
+        updateHighlight();
         requestAnimationFrame(redraw);
     }
 }
@@ -160,6 +172,9 @@ defineExpose({ strokes: () => strokes, clear, undo });
             <canvas ref="canvas" class="tegaki-canvas" :class="{ 'is-locked': faded }" aria-label="ここに 漢字を 書こう"
                 @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @contextmenu.prevent></canvas>
             <slot></slot>
+            <svg v-if="highlighted" class="tegaki-extra" :viewBox="`0 0 ${size} ${size}`" aria-hidden="true">
+                <polyline :points="highlighted" />
+            </svg>
         </div>
     </div>
 </template>
