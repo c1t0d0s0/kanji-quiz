@@ -87,6 +87,32 @@ describe('judging handwriting', () => {
         }
     });
 
+    // A stroke left out must not pass for two strokes written in one go: 日 in 着 instead of 目 (the
+    // two inner lines are not one stroke going back and forth), nor the line under the dots of 着
+    it('a stroke left out is wrong, not taken for two strokes written in one go', () => {
+        const chaku = models['着'];
+        for (const drop of [9, 10]) {
+            for (const g of GRADES) {
+                for (const seed of ['1', '2', '3', '4']) {
+                    const v = judge(scribble(chaku.filter((_, i) => i !== drop), MESS.small, `着${seed}`), chaku, g);
+                    expect(v, `着 without ${drop + 1}, ${g}年生`).toMatchObject({ ok: false, reason: 'count' });
+                }
+            }
+        }
+        for (const [g, most] of [[1, 0.03], [3, 0.03], [6, 0.01]] as const) {
+            let n = 0, ok = 0;
+            for (const k of kanjiDatabase.filter((_, i) => i % 10 === 0)) {
+                const m = models[k.kanji];
+                if (m.length < 3) continue;
+                for (let drop = 0; drop < m.length; drop++) {
+                    n++;
+                    if (judge(scribble(m.filter((_, i) => i !== drop), MESS.small, k.kanji + drop), m, g).ok) ok++;
+                }
+            }
+            expect(ok / n, `${g}年生`).toBeLessThan(most);
+        }
+    }, 120000);
+
     it('nothing, a dot, one stroke or a scribble is wrong', () => {
         const red = models['赤'];
         expect(judge([], red, 1).reason).toBe('empty');

@@ -52,6 +52,9 @@ const UNPAIRED = 0.35;
 // is written backwards when the other way round is closer by more than BACKWARDS
 const ORDER_TIE = 0.03;
 const BACKWARDS = 0.03;
+// Two strokes are taken as written in one go only when the one stroke is at least this part of the
+// way the pen goes through both (the line between them included)
+const JOIN_LENGTH = 0.75;
 // A pair put together may match only this little worse than one of its two strokes alone
 const JOIN_SLACK = 0.01;
 // Points of each stroke, for comparing strokes
@@ -286,12 +289,21 @@ export function absorbJoins(written: Stroke[], model: Stroke[], budget: number, 
         const fewPoints = few.map(points);
         let best: { distance: number; merged: Stroke[]; at: number } | null = null;
         for (let k = 0; k + 1 < many.length; k++) {
-            const joined = points([...many[k], ...many[k + 1]]);
-            const fits = fewPoints.some(fp => {
+            const joinedLine = [...many[k], ...many[k + 1]];
+            const joined = points(joinedLine);
+            // The pen goes from the end of one stroke to the start of the next one too: a single
+            // stroke much shorter than that way did not go it (日 written for the two inner lines of 目)
+            const wayLength = length(joinedLine);
+            const fits = few.some((one, f) => {
+                if (length(one) < wayLength * JOIN_LENGTH) return false;
+                const fp = fewPoints[f];
                 const cost = strokeCost(joined, fp, reversed);
                 const single = Math.min(strokeCost(points(many[k]), fp, reversed), strokeCost(points(many[k + 1]), fp, reversed));
                 // (a dot written in two is about as close as each half, wobbling as much as it is long: some slack)
-                return cost <= match && cost < Math.max(single + JOIN_SLACK, single * 2);
+                if (cost > match || cost >= Math.max(single + JOIN_SLACK, single * 2)) return false;
+                // And the one stroke is not simply another stroke of its own (the line of 着 under the
+                // two dots is its own stroke, not the two dots written in one go)
+                return many.every((other, x) => x === k || x === k + 1 || strokeCost(points(other), fp, reversed) > cost);
             });
             if (!fits) continue;
             // Of the pairs that could be one stroke, the one that leaves all the strokes paired best
