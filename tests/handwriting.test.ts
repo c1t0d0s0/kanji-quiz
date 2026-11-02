@@ -39,7 +39,7 @@ describe('judging handwriting', () => {
         const messy = (k: string) => scribble(models[k], MESS.large, k);
         const first = rate(every3, messy, () => 1), sixth = rate(every3, messy, () => 6);
         expect(first).toBeGreaterThan(0.85);
-        expect(sixth).toBeLessThan(0.35);
+        expect(sixth).toBeLessThan(0.45);
     }, 120000);
 
     it('young children may join or break strokes', () => {

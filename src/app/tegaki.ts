@@ -6,11 +6,30 @@ import type { Hint, JudgeOptions, Limits, Stroke, TraceResult, Verdict } from '.
 // copy the writing (to look into a judgement that seems wrong). The quiz waits for 「つぎへ」
 export const tegakiDebug = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
 
+// ?debug: what was judged (the writing kept as it was, to be copied later)
+export interface TegakiDebugInfo {
+    kanji: string;
+    grade: number;
+    strokeOrder: boolean;
+    verdict: Verdict | null;
+    limits: Limits;
+    size: number;
+    strokes: number[][][];
+}
+
+export function debugInfo(kit: TegakiKit, kanji: string, grade: number, strokeOrder: boolean, verdict: Verdict | null,
+    strokes: readonly Stroke[], size: number): TegakiDebugInfo {
+    return {
+        kanji, grade, strokeOrder, verdict, limits: kit.limitsFor(grade, kit.strokes[kanji]?.length ?? 0), size,
+        strokes: strokes.map(s => s.map(p => [Math.round(p.x), Math.round(p.y)]))
+    };
+}
+
 export interface TegakiKit {
     strokes: Record<string, number[][]>;
     judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options?: JudgeOptions): Verdict;
     trace(written: Stroke, model: readonly (readonly number[])[], index: number, size: number): TraceResult;
-    limitsFor(grade: number): Limits;
+    limitsFor(grade: number, strokes?: number): Limits;
 }
 
 let loading: Promise<TegakiKit> | null = null;
@@ -78,5 +97,6 @@ export function verdictMarks(verdict: Verdict | null) {
 // The canvas of the quiz screen (TegakiArea.vue gives these when it is mounted)
 export const tegakiPad = {
     strokes: (): Stroke[] => [],
+    size: () => 0,
     clear: () => {}
 };

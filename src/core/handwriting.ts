@@ -58,9 +58,13 @@ const JOIN_SLACK = 0.01;
 const STROKE_POINTS = 16;
 // Distance between the points spread over the ink, for comparing shapes
 const INK_STEP = 0.02;
-// For flips: strokes shorter than this are not compared; ratios this clear in the model,
-// and at least this much the other way round in the writing
-const LONG_ENOUGH = 0.12;
+// For flips: strokes shorter than this (a part of the kanji's size) are not compared: the long
+// strokes make the frame of a kanji (未 and 末), the short ones vary from hand to hand (the legs
+// of 八). Ratios this clear in the model, and at least this much the other way round in the writing
+const LONG_ENOUGH = 0.3;
+// A kanji of many strokes has many pairs of strokes that could be off: one more flip or
+// mismatched meeting allowed for every this many strokes
+const STROKES_PER_SLACK = 10;
 const CLEAR_RATIO = Math.log(1.3);
 const FLIPPED_RATIO = Math.log(1.15);
 // A kanji written a little wider or taller than the model (up to this much) is first brought to
@@ -529,31 +533,51 @@ export function diagnose(found: Found, limits: Limits): Hint | null {
             return { kind: flip.tooLong ? 'shorter' : 'longer', stroke: number(flip.culprit), other: number(other) };
         }
     }
-    // The stroke farthest from its place. Children mostly write in order, so a stroke is paired
-    // with the model's stroke of the same turn unless another is clearly closer (as in the stroke
-    // order): a stroke moved aside is not taken for its neighbour
+    // Otherwise the stroke farthest from where the model puts it. Both kanji are in boxes, but one
+    // stroke out of place (pushed through, moved aside) changes the box and so seems to move every
+    // stroke: the model is laid over the writing by the centres of the strokes instead, with medians
+    // (Theil-Sen), so that one stroke cannot pull the others along.
+    // Children mostly write in order, so a stroke is paired with the model's stroke of the same turn
+    // unless another is clearly closer (as in the stroke order): a stroke moved aside is not taken
+    // for its neighbour.
     const cost = a.map((sa, i) => b.map((sb, j) => strokeCost(sa, sb, limits.reversed) + (i === j ? 0 : ORDER_TIE)));
     const { rowOf } = minimumPairing(cost);
-    // When one stroke is moved, the box of the whole kanji moves too and every stroke seems a
-    // little off: what all the strokes share (the median shift) is taken away first
     const centre = (st: Stroke) => ({ x: st.reduce((n, p) => n + p.x, 0) / st.length, y: st.reduce((n, p) => n + p.y, 0) / st.length });
-    const shifts = rowOf.map((i, j) => {
-        const cw = centre(a[i]), cm = centre(b[j]);
-        return { x: cw.x - cm.x, y: cw.y - cm.y };
-    });
-    const median = (v: number[]) => [...v].sort((p, q) => p - q)[Math.floor(v.length / 2)];
-    const shared = { x: median(shifts.map(d => d.x)), y: median(shifts.map(d => d.y)) };
-    let worst = { j: -1, by: -1 };
-    rowOf.forEach((i, j) => {
-        const moved = b[j].map(p => ({ x: p.x + shared.x, y: p.y + shared.y }));
-        const by = strokeCost(a[i], moved, limits.reversed);
-        if (by > worst.by) worst = { j, by };
-    });
-    return worst.j < 0 ? null : { kind: 'place', stroke: number(worst.j) };
+    const pairsInOrder = rowOf.map((i, j) => ({ i, j, w: centre(a[i]), m: centre(b[j]) }));
+    const median = (v: number[]) => (v.length ? [...v].sort((p, q) => p - q)[Math.floor(v.length / 2)] : 1);
+    // writing = scale * model + shift, on each axis
+    const fit = (axis: 'x' | 'y') => {
+        const slopes: number[] = [];
+        for (let p = 0; p < pairsInOrder.length; p++) {
+            for (let q = p + 1; q < pairsInOrder.length; q++) {
+                const dm = pairsInOrder[q].m[axis] - pairsInOrder[p].m[axis];
+                if (Math.abs(dm) > 0.05) slopes.push((pairsInOrder[q].w[axis] - pairsInOrder[p].w[axis]) / dm);
+            }
+        }
+        const scale = Math.min(1.5, Math.max(0.67, median(slopes)));
+        return { scale, shift: median(pairsInOrder.map(pr => pr.w[axis] - scale * pr.m[axis])) };
+    };
+    const fx = fit('x'), fy = fit('y');
+    const laid = (st: Stroke) => st.map(p => ({ x: fx.scale * p.x + fx.shift, y: fy.scale * p.y + fy.shift }));
+    let worst = { i: -1, j: -1, by: -1 };
+    for (const { i, j } of pairsInOrder) {
+        const by = strokeCost(a[i], laid(b[j]), limits.reversed);
+        if (by > worst.by) worst = { i, j, by };
+    }
+    if (worst.j < 0) return null;
+    // Pushed through or stopped short where the model differs: say that
+    const same = meetings.find(miss => miss.stroke === worst.j);
+    if (same) return meetingHint(same);
+    const ratio = length(written[worst.i]) / (length(laid(target[worst.j])) || 1);
+    const kind = ratio > 1.25 ? 'shorter' : ratio < 0.8 ? 'longer' : 'place';
+    return { kind, stroke: number(worst.j) };
 }
 
-export function limitsFor(grade: number): Limits {
-    return LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
+// The limits of a grade; for a kanji of many strokes, a little more room for flips and meetings
+export function limitsFor(grade: number, strokes = 0): Limits {
+    const limits = LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
+    const more = Math.floor(strokes / STROKES_PER_SLACK);
+    return more > 0 ? { ...limits, flips: limits.flips + more, meets: limits.meets + more } : limits;
 }
 
 // Width / height of strokes put in a box (a line alone counts as square)
@@ -596,7 +620,7 @@ export function measure(writing: readonly Stroke[], model: readonly (readonly nu
 
 // Judges the writing (in any units, e.g. canvas pixels) against the model of KanjiVG
 export function judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options: JudgeOptions = {}): Verdict {
-    const limits = limitsFor(grade);
+    const limits = limitsFor(grade, model.length);
     const found = measure(writing, model, limits);
     if (!found) {
         return { ok: false, reason: 'empty', order: null, hint: null, shape: Infinity, strokes: Infinity, worst: Infinity, flips: 0, meets: 0, joins: 0, written: 0, expected: model.length };

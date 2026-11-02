@@ -12,6 +12,7 @@ import {
     exitPractice, isLast, nextKanji, practice, practiseKanji, restartTrace, retrace, rewrite, setPracticeCounts, submitWriting, traceStroke
 } from '../app/practice';
 import ModelStrokes from './ModelStrokes.vue';
+import TegakiDebug from './TegakiDebug.vue';
 import WritingPad from './WritingPad.vue';
 
 const pad = ref<InstanceType<typeof WritingPad> | null>(null);
@@ -27,7 +28,7 @@ function onStroke(stroke: Stroke, size: number) {
 }
 
 function answer() {
-    submitWriting(pad.value?.strokes() ?? []);
+    submitWriting(pad.value?.strokes() ?? [], pad.value?.size() ?? 0);
 }
 
 // A new stage or a new kanji: a clean square
@@ -121,6 +122,8 @@ function step(key: 'trace' | 'write', by: number) {
                         <button type="button" class="btn" :class="{ 'btn-primary': practice.finished }" @click="nextKanji">{{ isLast() ? 'おわる' : 'つぎの 字へ' }}</button>
                     </template>
                 </div>
+                <!-- ?debug: the measures of the last writing without the model -->
+                <TegakiDebug v-if="practice.debug" :info="practice.debug" />
                 <p class="tegaki-credit">字の形と書き順: <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (© Ulrich Apel)
                     <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a></p>
             </div>

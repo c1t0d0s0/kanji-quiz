@@ -13,7 +13,7 @@ import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
 import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
-import { tegakiDebug, tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
+import { debugInfo, tegakiDebug, tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
 
 // A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
 export interface TegakiQuestion extends KanjiQuestion {
@@ -331,11 +331,11 @@ export function submitTegaki(strokes: readonly Stroke[]) {
     const t = quiz.tegaki;
     if (!t || t.locked || !tegakiKit) return;
     const item = current() as TegakiQuestion;
-    finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade, { strokeOrder }));
+    finishTegaki(item, tegakiKit.judge(strokes, t.model, item.grade, { strokeOrder }), strokes);
 }
 
 // verdict: null when nothing was written in time
-function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
+function finishTegaki(item: TegakiQuestion, verdict: Verdict | null, strokes: readonly Stroke[] = []) {
     const t = quiz.tegaki;
     if (!t) return;
     clearInterval(timerInterval);
@@ -356,7 +356,7 @@ function finishTegaki(item: TegakiQuestion, verdict: Verdict | null) {
     quiz.note = kanjiNote(item);
     if (tegakiDebug && tegakiKit) {
         // Stays until 「つぎへ」, to read the measures and copy the writing
-        t.debug = { kanji: item.kanji, grade: item.grade, verdict, limits: tegakiKit.limitsFor(item.grade) };
+        t.debug = debugInfo(tegakiKit, item.kanji, item.grade, strokeOrder, verdict, strokes, tegakiPad.size());
         return;
     }
     goToNextQuestion(TEGAKI_NEXT_MS);
@@ -403,7 +403,7 @@ function handleTimeout() {
     if (quiz.mode === 'tegaki' && quiz.tegaki && tegakiKit) {
         // What was written in time is judged, as if 「こたえる」 had been pressed
         const strokes = tegakiPad.strokes();
-        finishTegaki(item as TegakiQuestion, strokes.length > 0 ? tegakiKit.judge(strokes, quiz.tegaki.model, item.grade, { strokeOrder }) : null);
+        finishTegaki(item as TegakiQuestion, strokes.length > 0 ? tegakiKit.judge(strokes, quiz.tegaki.model, item.grade, { strokeOrder }) : null, strokes);
         return;
     }
     if (quiz.mode === 'kumitate') {
