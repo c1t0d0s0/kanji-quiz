@@ -68,6 +68,9 @@ const LONG_ENOUGH = 0.3;
 // A kanji of many strokes has many pairs of strokes that could be off: one more flip or
 // mismatched meeting allowed for every this many strokes
 const STROKES_PER_SLACK = 10;
+// For a kanji of n strokes, the shape and the farthest stroke may be 1 + this / n times as far as
+// the grade's (2 strokes: 1.3, 3 strokes: 1.2, 10 strokes: 1.06)
+const FEW_STROKES_ROOM = 0.6;
 const CLEAR_RATIO = Math.log(1.3);
 const FLIPPED_RATIO = Math.log(1.15);
 // A kanji written a little wider or taller than the model (up to this much) is first brought to
@@ -585,11 +588,22 @@ export function diagnose(found: Found, limits: Limits): Hint | null {
     return { kind, stroke: number(worst.j) };
 }
 
-// The limits of a grade; for a kanji of many strokes, a little more room for flips and meetings
+// The limits of a grade, for a kanji of so many strokes. A kanji of many strokes has a little more
+// room for flips and meetings. A kanji of few strokes has more room in its shape and its farthest
+// stroke: its box is made by those few strokes, so one stroke a little longer or lower (the
+// crossing of 十) moves every stroke in the box, while to the eye it is still the same kanji.
+// (The distances between paired strokes, which tell 田 from 由, keep their limits)
 export function limitsFor(grade: number, strokes = 0): Limits {
     const limits = LIMITS[Math.min(6, Math.max(1, Math.round(grade)))];
     const more = Math.floor(strokes / STROKES_PER_SLACK);
-    return more > 0 ? { ...limits, flips: limits.flips + more, meets: limits.meets + more } : limits;
+    const room = strokes > 0 ? 1 + FEW_STROKES_ROOM / strokes : 1;
+    return {
+        ...limits,
+        shape: limits.shape * room,
+        worst: limits.worst * room,
+        flips: limits.flips + more,
+        meets: limits.meets + more
+    };
 }
 
 // Width / height of strokes put in a box (a line alone counts as square)
