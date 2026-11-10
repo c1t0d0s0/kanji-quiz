@@ -2499,3 +2499,124 @@ button {
     width: 100%;
     font-size: 0.6875rem;
 }
+
+/* なりたち: the picture a kanji came from, turning into the kanji */
+.naritachi {
+    width: min(26rem, calc(100% - 1.5rem));
+}
+
+.naritachi-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem 1rem;
+    overflow-y: auto;
+}
+
+.naritachi-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.naritachi-stage.is-still {
+    flex-flow: row wrap;
+    justify-content: center;
+}
+
+.naritachi-svg {
+    width: min(16rem, 70vw);
+    aspect-ratio: 1;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 2px var(--rule-soft);
+}
+
+.naritachi-stage.is-still .naritachi-svg {
+    width: min(8rem, 30vw);
+}
+
+.naritachi-arrow {
+    color: var(--red);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.nt-part,
+.nt-enter {
+    transform-box: view-box;
+}
+
+.nt-part {
+    transform-origin: 0 0;
+}
+
+.nt-pic {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+}
+
+.nt-stroke {
+    fill: none;
+    stroke: var(--red);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+}
+
+.naritachi-stage.is-still .nt-pic,
+.nt-stroke.is-shown {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+}
+
+.naritachi-text {
+    min-height: 3em;
+    margin: 0;
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.5s ease-out;
+}
+
+.naritachi-text.is-shown {
+    opacity: 1;
+}
+
+.naritachi-kanji {
+    margin-right: 0.25em;
+    color: var(--red);
+    font-size: 1.4em;
+}
+
+.naritachi-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.naritachi-btn {
+    min-height: 2rem;
+    margin-left: 0.5em;
+    padding: 0.15rem 0.6rem;
+    font-family: var(--ui);
+    font-size: 0.8125rem;
+    vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .naritachi-text {
+        transition: none;
+    }
+}

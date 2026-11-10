@@ -87,6 +87,8 @@ export function goHome() {
 // 'yomi' / 'kaki' (the 漢字ずかん) or 'words' (the 熟語ずかん); null when closed
 export const zukan = ref<'yomi' | 'kaki' | 'words' | null>(null);
 export const kisekaeOpen = ref(false);
+// The kanji whose なりたち (the picture it came from) is shown; null when closed
+export const naritachi = ref<string | null>(null);
 
 // Moves the focus away, so a button just pressed on a touch screen does not stay highlighted
 export function blurActive() {

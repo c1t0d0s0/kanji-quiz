@@ -6,6 +6,7 @@ import BattleScreen from './components/BattleScreen.vue';
 import PracticeScreen from './components/PracticeScreen.vue';
 import ZukanDialog from './components/ZukanDialog.vue';
 import KisekaeDialog from './components/KisekaeDialog.vue';
+import NaritachiDialog from './components/NaritachiDialog.vue';
 </script>
 
 <template>
@@ -18,4 +19,6 @@ import KisekaeDialog from './components/KisekaeDialog.vue';
     <PracticeScreen />
     <ZukanDialog />
     <KisekaeDialog />
+    <!-- なりたち: over the ずかん, the practice and the quiz -->
+    <NaritachiDialog />
 </template>

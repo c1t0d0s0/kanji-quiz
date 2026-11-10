@@ -5,7 +5,8 @@ import { kanjiDatabase } from '../data/kanji';
 import { jukugoDatabase } from '../data/jukugo';
 import { GRADES, KANJI_KINDS, WORD_REWARD_COUNT, readingsText } from '../core/quiz';
 import * as Records from '../core/records';
-import { fromRecords, zukan } from '../app/state';
+import { fromRecords, naritachi, zukan } from '../app/state';
+import { NARITACHI } from '../data/naritachi';
 import Hanamaru from './Hanamaru.vue';
 
 type Kind = 'yomi' | 'kaki' | 'words';
@@ -112,7 +113,7 @@ function onClick(event: MouseEvent) {
         </div>
         <p id="zukan-detail" class="zukan-detail" aria-live="polite">
             <template v-if="typeof detail === 'string'">{{ detail }}</template>
-            <template v-else><b class="zukan-detail-kanji">{{ detail.main }}</b>{{ detail.rest }}<span v-if="detail.meaning !== undefined" class="zukan-detail-meaning">{{ detail.meaning }}</span></template>
+            <template v-else><b class="zukan-detail-kanji">{{ detail.main }}</b>{{ detail.rest }}<span v-if="detail.meaning !== undefined" class="zukan-detail-meaning">{{ detail.meaning }}</span><button v-if="kind !== 'words' && NARITACHI.has(detail.main)" type="button" class="btn naritachi-btn" @click="naritachi = detail.main">なりたち</button></template>
         </p>
         <div id="zukan-body" ref="body" :key="drawn" class="zukan-body">
             <template v-if="kind !== 'words'">

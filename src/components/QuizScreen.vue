@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { quiz } from '../app/quiz-view';
-import { screen } from '../app/state';
-import { choose, placeTile, quitQuiz, returnTile, takeCard } from '../app/session';
+import { naritachi, screen } from '../app/state';
+import { choose, pauseNext, placeTile, quitQuiz, resumeNext, returnTile, takeCard } from '../app/session';
+import { NARITACHI } from '../data/naritachi';
 import { playing, quitBattle, takeBattleCard } from '../app/battle';
 import KarutaField from './KarutaField.vue';
 import TegakiArea from './TegakiArea.vue';
@@ -21,6 +22,19 @@ function take(index: number) {
     if (quiz.battle) takeBattleCard(index);
     else takeCard(index);
 }
+
+// なりたち after an answer: the next question waits until it is closed
+let heldNext = false;
+function showNaritachi(kanji: string) {
+    pauseNext();
+    heldNext = true;
+    naritachi.value = kanji;
+}
+watch(naritachi, now => {
+    if (now || !heldNext) return;
+    heldNext = false;
+    resumeNext();
+});
 
 const optionClass = (i: number) => {
     const option = quiz.options[i];
@@ -93,6 +107,7 @@ const optionClass = (i: number) => {
             <p id="answer-note" class="answer-note">
                 <template v-if="quiz.note?.kind === 'kanji'">
                     <span class="answer-kanji">{{ quiz.note.kanji }}</span>{{ ' ' }}<template v-for="(r, i) in quiz.note.readings" :key="i">{{ i > 0 ? '・' : '' }}<b v-if="r.asked">{{ r.text }}</b><template v-else>{{ r.text }}</template></template>
+                    <button v-if="!quiz.battle && NARITACHI.has(quiz.note.kanji)" type="button" class="btn naritachi-btn" @click="showNaritachi(quiz.note.kanji)">なりたち</button>
                 </template>
                 <template v-else-if="quiz.note?.kind === 'word'">
                     <span class="answer-kanji">{{ quiz.note.word }}</span>{{ ` ${quiz.note.reading}` }}<span class="answer-parts"><span v-for="part in quiz.note.parts" :key="part">{{ part }}</span></span>

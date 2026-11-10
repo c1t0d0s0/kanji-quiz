@@ -59,6 +59,11 @@ let itemId: string | null = null;
 let timeLeft = 0;
 let timerInterval: ReturnType<typeof setInterval> | undefined;
 let nextTimeout: ReturnType<typeof setTimeout> | undefined;
+// The way on to the next question: waiting for it, or held while the なりたち is looked at
+let nextWaiting = false;
+let nextPaused = false;
+// After the なりたち is closed, a moment before the next question
+const RESUME_MS = 700;
 
 const current = () => questions[index];
 
@@ -138,6 +143,8 @@ export function quitQuiz() {
 export function stopQuiz() {
     clearInterval(timerInterval);
     clearTimeout(nextTimeout);
+    nextWaiting = false;
+    nextPaused = false;
 }
 
 function resetQuestion() {
@@ -212,10 +219,26 @@ function startTimer(limit = TIME_LIMIT) {
 
 // A little longer than the answer takes to read
 function goToNextQuestion(ms = NEXT_QUESTION_MS) {
+    nextWaiting = true;
     nextTimeout = setTimeout(() => {
+        nextWaiting = false;
         index++;
         displayQuestion();
     }, ms);
+}
+
+// なりたち opened after an answer: the next question waits until it is closed
+export function pauseNext() {
+    if (!nextWaiting) return;
+    clearTimeout(nextTimeout);
+    nextWaiting = false;
+    nextPaused = true;
+}
+
+export function resumeNext() {
+    if (!nextPaused) return;
+    nextPaused = false;
+    goToNextQuestion(RESUME_MS);
 }
 
 function rightAnswer() {

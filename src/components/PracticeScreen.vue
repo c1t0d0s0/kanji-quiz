@@ -7,7 +7,8 @@ import { kanjiDatabase } from '../data/kanji';
 import type { Stroke } from '../core/handwriting';
 import { GRADES } from '../core/quiz';
 import { PRACTICE_MAX } from '../core/records';
-import { goHome, screen, selection } from '../app/state';
+import { goHome, naritachi, screen, selection } from '../app/state';
+import { NARITACHI } from '../data/naritachi';
 import {
     exitPractice, isLast, nextKanji, practice, practiseKanji, restartTrace, retrace, rewrite, setPracticeCounts, submitWriting, traceStroke
 } from '../app/practice';
@@ -133,6 +134,7 @@ function step(key: 'trace' | 'write', by: number) {
                 <!-- The kanji and its readings (hidden while writing without the model) -->
                 <p class="answer-note" :class="{ 'is-hidden': practice.stage === 'write' }">
                     <span class="answer-kanji">{{ item.kanji }}</span> {{ item.readings.join('・') }}
+                    <button v-if="NARITACHI.has(item.kanji) && practice.stage !== 'write'" type="button" class="btn naritachi-btn" @click="naritachi = item.kanji">なりたち</button>
                 </p>
             </div>
         </template>
