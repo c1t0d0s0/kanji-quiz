@@ -2,7 +2,7 @@
 // Questions, the 4 choices, the tiles of the 熟語くみたて, the rank, and the rewards.
 import { kanjiDatabase, type KanjiItem } from '../data/kanji';
 import { jukugoDatabase, type JukugoItem } from '../data/jukugo';
-import type { Reibun } from '../data/reibun';
+import { reibunList, type Reibun } from '../data/reibun';
 import * as Lynx from './lynx';
 import type { KanjiKind } from './records';
 
@@ -32,7 +32,7 @@ jukugoDatabase.forEach(item => jukugoByReading.set(item.reading, [...(jukugoByRe
 // Words with the same reading (科学 / 化学): building any of them is correct
 export const wordsByReading = new Map([...jukugoByReading].map(([reading, items]) => [reading, items.map(item => item.word)]));
 // Kanji sharing a reading make good look-alike tiles (校 こう → 高・交・考)
-const kanjiByReading = new Map<string, string[]>();
+export const kanjiByReading = new Map<string, string[]>();
 kanjiDatabase.forEach(item => item.readings.forEach(r => kanjiByReading.set(r, [...(kanjiByReading.get(r) || []), item.kanji])));
 
 export function shuffle<T>(array: T[], random: Random = Math.random): T[] {
@@ -94,6 +94,22 @@ export function makeTiles(item: JukugoItem, random: Random = Math.random): Tile[
 // Is the built word right: the word itself, or another word with the same reading
 export const isRightWord = (item: JukugoItem, built: string) =>
     built === item.word || (wordsByReading.get(item.reading) || []).includes(built);
+
+// A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
+export interface TegakiQuestion extends KanjiQuestion {
+    phrase: Reibun;
+}
+
+// One of the phrases of the kanji, and the reading it asks about
+export function tegakiQuestion(item: KanjiQuestion, random: Random = Math.random): TegakiQuestion {
+    const phrases = reibunList.get(item.kanji) ?? [];
+    const phrase = shuffle([...phrases], random)[0] ?? { before: '', reading: item.targetReading, after: '' };
+    // The reading in the phrase may sound a little different (がっこう: がく → がっ)
+    const targetReading = item.readings.includes(phrase.reading)
+        ? phrase.reading
+        : item.readings.find(r => r.slice(1) === phrase.reading.slice(1) || r.slice(0, -1) === phrase.reading.slice(0, -1)) ?? phrase.reading;
+    return { ...item, targetReading, phrase };
+}
 
 // 手書き: the meaning of the 熟語 a phrase spells (じ(どう) → 児童), shown as a hint, so a phrase
 // that sounds like another word (自動) still asks for one kanji. null when the phrase is no 熟語.

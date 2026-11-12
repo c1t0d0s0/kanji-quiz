@@ -4,6 +4,7 @@ import QuizScreen from './components/QuizScreen.vue';
 import ResultScreen from './components/ResultScreen.vue';
 import BattleScreen from './components/BattleScreen.vue';
 import PracticeScreen from './components/PracticeScreen.vue';
+import KankenScreen from './components/KankenScreen.vue';
 import ZukanDialog from './components/ZukanDialog.vue';
 import KisekaeDialog from './components/KisekaeDialog.vue';
 import NaritachiDialog from './components/NaritachiDialog.vue';
@@ -17,6 +18,8 @@ import NaritachiDialog from './components/NaritachiDialog.vue';
     <BattleScreen />
     <!-- 手書きの なぞり練習 -->
     <PracticeScreen />
+    <!-- 漢検もぎ試験 -->
+    <KankenScreen />
     <ZukanDialog />
     <KisekaeDialog />
     <!-- なりたち: over the ずかん, the practice and the quiz -->

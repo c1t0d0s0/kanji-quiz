@@ -2620,3 +2620,229 @@ button {
         transition: none;
     }
 }
+
+/* --- 漢検もぎ試験 --- */
+/* The title under the lynx: written in red pen on a strip of paper */
+.lynx-box {
+    flex: none;
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+}
+
+.lynx-title {
+    padding: 0.05rem 0.5rem;
+    border: 2px solid var(--red);
+    border-radius: 0.25rem;
+    background: var(--paper);
+    color: var(--red);
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: clamp(0.75rem, 3vw, 0.9375rem);
+    line-height: 1.4;
+    white-space: nowrap;
+    transform: rotate(-3deg);
+}
+
+.kanken-kyus {
+    grid-template-columns: repeat(6, 1fr);
+    margin-top: 0;
+}
+
+@media (max-width: 34rem) {
+    .kanken-kyus {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.kanken-pass {
+    margin-top: 0.35rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+}
+
+.kanken-counter {
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.125rem;
+    white-space: nowrap;
+}
+
+.kanken-progress {
+    height: 100%;
+    background: var(--ink);
+    transition: width 0.3s ease;
+}
+
+.kanken-question {
+    flex: 1 1 0;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0.6rem;
+    min-height: 0;
+    text-align: center;
+}
+
+.is-tegaki .kanken-question {
+    flex: none;
+}
+
+/* The section, like a heading on a test paper */
+.kanken-section {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0 0.6rem;
+    border-bottom: 2px solid var(--rule);
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.kanken-points {
+    color: var(--muted);
+    font-family: var(--ui);
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.kanken-lead {
+    color: var(--muted);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+/* The sentence, written on a strip of paper */
+.kanken-sentence {
+    max-width: 100%;
+    padding: 0.35em 0.7em;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--rule);
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: clamp(1.5rem, min(8vw, 6dvh), 2.5rem);
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+}
+
+.kanken-sentence.is-long {
+    font-size: clamp(1.125rem, min(5.5vw, 4.5dvh), 1.75rem);
+    text-align: left;
+}
+
+/* One kanji (部首): in a practice square with dotted centre lines */
+.kanken-sentence.is-kanji {
+    display: grid;
+    place-items: center;
+    width: 1.5em;
+    height: 1.5em;
+    padding: 0;
+    box-shadow: 0 0 0 2px var(--rule);
+    background:
+        repeating-linear-gradient(to right, var(--rule-soft) 0 5px, transparent 5px 10px) center / 100% 1px no-repeat,
+        repeating-linear-gradient(to bottom, var(--rule-soft) 0 5px, transparent 5px 10px) center / 1px 100% no-repeat,
+        var(--paper);
+    font-size: clamp(3.5rem, min(26vw, 18dvh), 7rem);
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+/* The part asked about, underlined with the red pen */
+.kanken-mark {
+    margin: 0 0.05em;
+    border-bottom: 3px solid var(--red);
+}
+
+.kanken-options .option {
+    font-size: clamp(1rem, min(5vw, 4dvh), 1.5rem);
+}
+
+.kanken-options .option.is-kanji {
+    font-size: clamp(1.75rem, min(9vw, 6.5dvh), 2.75rem);
+}
+
+.kanken-back {
+    flex: none;
+    text-align: center;
+}
+
+.kanken-score {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.kanken-score b {
+    display: inline-block;
+    margin-right: 0.15em;
+    padding: 0 0.1em;
+    border-bottom: 5px double var(--red);
+    color: var(--red);
+    font-family: var(--hand);
+    font-weight: 600;
+    font-size: clamp(2.5rem, 12vw, 3.25rem);
+    line-height: 1.15;
+}
+
+.kanken-stamp.is-fail {
+    color: var(--muted);
+}
+
+.kanken-message {
+    font-weight: 700;
+    font-size: 1.0625rem;
+}
+
+.kanken-sections {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.kanken-sections li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.2rem 0.6rem;
+    border-bottom: 1px dashed var(--rule-soft);
+}
+
+.kanken-sections li.is-full b {
+    color: var(--red);
+}
+
+.kanken-missed {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.kanken-missed li {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.4rem 0.7rem;
+    background: var(--red-soft);
+    box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.kanken-missed-section {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.kanken-missed-answer {
+    font-family: var(--font-kyokasho);
+    font-weight: 600;
+    font-size: 1.25rem;
+    line-height: 1.4;
+}
+
+.kanken-missed-given {
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+
+/* 書き取り: four buttons (with 「わからない」) wrap on a phone */
+.kanken .tegaki-actions {
+    flex-wrap: wrap;
+}

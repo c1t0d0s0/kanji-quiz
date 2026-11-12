@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import * as Lynx from '../core/lynx';
 import { GRADES, earnedRewards, type Earned } from '../core/quiz';
+import { kankenTitle as titleOf, kyuForGrade, type Kyu } from '../core/kanken';
 import * as Records from '../core/records';
 
 // --- Records ---
@@ -24,6 +25,9 @@ export const settings = fromRecords(() => Records.getSettings());
 export const earned = fromRecords((): Earned =>
     earnedRewards(Records.getCollected('yomi'), Records.getCollected('kaki'), Records.getCollectedWords()));
 
+// 漢検もぎ試験: the highest level passed (shown under the lynx), or null
+export const kankenTitle = fromRecords(() => titleOf(Records.getBest));
+
 // What the lynx wears: only items that were won
 export const outfit = computed(() => Lynx.normalizeOutfit(settings.value.outfit).filter(id => earned.value.items.has(id)));
 
@@ -35,7 +39,11 @@ let urlGrade: string | null = gradeParam && VALID_GRADES.includes(gradeParam) ? 
 
 // strokeOrder: 手書き also judges the stroke order (off until turned on)
 // practiceTrace / practiceWrite: 手書きの練習 traces and writes each kanji this many times
-export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false, practiceTrace: 1, practiceWrite: 1 });
+// kankenKyu: the level of the 漢検もぎ試験, from the grade (1年生 → 10級); not saved
+export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false, practiceTrace: 1, practiceWrite: 1, kankenKyu: 5 as Kyu });
+
+// The 級 picked on the 漢検 card stays until another grade is chosen
+let kankenPicked = false;
 
 // Back to the last selection (on the first paint, back on the home screen, and after a sync)
 export function restoreSelection() {
@@ -45,12 +53,20 @@ export function restoreSelection() {
     selection.strokeOrder = s.strokeOrder ?? false;
     selection.practiceTrace = s.practiceTrace ?? 1;
     selection.practiceWrite = s.practiceWrite ?? 1;
+    if (!kankenPicked) selection.kankenKyu = kyuForGrade(selection.grade);
 }
 
 export function chooseGrade(grade: string) {
     urlGrade = null;
     selection.grade = grade;
+    selection.kankenKyu = kyuForGrade(grade);
+    kankenPicked = false;
     Records.setSettings({ grade: grade as Records.Grade });
+}
+
+export function chooseKankenKyu(kyu: Kyu) {
+    selection.kankenKyu = kyu;
+    kankenPicked = true;
 }
 
 export function chooseCount(count: number) {
@@ -71,7 +87,7 @@ export function choosePracticeCounts(trace: number, write: number) {
 }
 
 // --- Screens and dialogs ---
-export type Screen = 'home' | 'quiz' | 'result' | 'battle' | 'practice';
+export type Screen = 'home' | 'quiz' | 'result' | 'battle' | 'practice' | 'kanken';
 export const screen = ref<Screen>('home');
 
 export function showScreen(name: Screen) {

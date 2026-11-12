@@ -5,6 +5,7 @@ import { kanjiDatabase } from '../src/data/kanji';
 import { jukugoDatabase, jukugoText } from '../src/data/jukugo';
 import { reibunList, reibunText } from '../src/data/reibun';
 import { phraseMeaning } from '../src/core/quiz';
+import { bushuList, douonList, gojiList, kankenTexts, okuriganaList, pairList, yojiList } from '../src/data/kanken';
 
 const MIN_WORDS_PER_KANJI = 2;
 const MIN_WORDS_PER_GRADE = 20; // the longest quiz is 20 questions
@@ -209,5 +210,110 @@ describe('例文 for the 手書き', () => {
             }
         }
         expect(unclear).toEqual([]);
+    });
+});
+
+// --- 漢検もぎ試験 (src/data/kanken/*.txt) ---
+const isSchoolKanji = (k: string) => gradeOf.has(k);
+const hanOf = (text: string) => [...text].filter(c => /\p{Script=Han}/u.test(c));
+// A reading of the kanji, or (for a 訓 with okurigana inside the kanji's reading) one that starts the same
+const hasReading = (k: string, reading: string, loose = false) =>
+    (readingsOf.get(k) || []).some(r => r === reading || (loose && (reading.startsWith(r) || r.startsWith(reading))));
+
+describe('漢検: 部首', () => {
+    it('every kanji has one 部首 and 部首名', () => {
+        const seen = new Map<string, number>();
+        for (const line of kankenTexts.bushu.split('\n')) {
+            if (!line.trim() || line.startsWith('#')) continue;
+            const [bushu, name, kanji] = line.split('|').map(p => p.trim());
+            expect(bushu, line).toBeTruthy();
+            expect(name, line).toMatch(/^[ぁ-ゖー]+$/);
+            for (const k of kanji) seen.set(k, (seen.get(k) || 0) + 1);
+        }
+        expect([...seen].filter(([, n]) => n > 1).map(([k]) => k)).toEqual([]);
+        expect(kanjiDatabase.filter(item => !seen.has(item.kanji)).map(item => item.kanji)).toEqual([]);
+        expect([...seen.keys()].filter(k => !isSchoolKanji(k))).toEqual([]);
+        expect(bushuList.size).toBe(kanjiDatabase.length);
+    });
+});
+
+describe('漢検: 送り仮名', () => {
+    it('one kanji, a reading of it, and at least 3 wrong ways to split the okurigana', () => {
+        const errors: string[] = [];
+        const words = new Set<string>();
+        for (const item of okuriganaList) {
+            if (words.has(item.word)) errors.push(`${item.word}: listed twice`);
+            words.add(item.word);
+            if (!isSchoolKanji(item.kanji) || hanOf(item.word).length !== 1) errors.push(`${item.word}: one school kanji, then kana`);
+            if (!/^[ぁ-ゖ]+$/.test(item.reading) || !item.reading.endsWith(item.word.slice(1))) errors.push(`${item.word}: the reading must end in the okurigana: ${item.reading}`);
+            if (!hasReading(item.kanji, item.stem)) errors.push(`${item.word}: ${item.stem} is not a reading of ${item.kanji}`);
+            if (item.reading.length < 4) errors.push(`${item.word}: too short to make 3 wrong choices`);
+        }
+        expect(errors).toEqual([]);
+    });
+});
+
+describe('漢検: 対義語・類義語', () => {
+    it('two different words of school kanji, each pair once', () => {
+        const errors: string[] = [];
+        const seen = new Set<string>();
+        for (const pair of pairList) {
+            const key = `${pair.kind}:${[pair.a, pair.b].sort().join('|')}`;
+            if (seen.has(key)) errors.push(`${pair.a} | ${pair.b}: listed twice`);
+            seen.add(key);
+            if (!pair.a || !pair.b || pair.a === pair.b) errors.push(`${pair.a} | ${pair.b}: two different words`);
+            const later = hanOf(pair.a + pair.b).filter(k => !isSchoolKanji(k));
+            if (later.length > 0) errors.push(`${pair.a} | ${pair.b}: not taught in grade school: ${later.join('')}`);
+        }
+        expect(errors).toEqual([]);
+    });
+});
+
+describe('漢検: 同音・同訓異字', () => {
+    it('the reading in brackets is shared by the answer and the wrong kanji', () => {
+        const errors: string[] = [];
+        for (const item of douonList) {
+            const where = `${item.answer} ${item.before}(${item.reading})${item.after}`;
+            if (!item.reading || !/^[ぁ-ゖ]+$/.test(item.reading)) errors.push(`${where}: one reading in brackets`);
+            if (!hasReading(item.answer, item.reading, item.kun)) errors.push(`${where}: ${item.reading} is not a reading of ${item.answer}`);
+            const min = item.kun ? 1 : 3;
+            if (item.wrong.length < min || item.wrong.length > 3) errors.push(`${where}: ${min} to 3 wrong kanji`);
+            if (new Set([item.answer, ...item.wrong]).size !== item.wrong.length + 1) errors.push(`${where}: the kanji must differ`);
+            for (const k of item.wrong) if (!hasReading(k, item.reading, item.kun)) errors.push(`${where}: ${item.reading} is not a reading of ${k}`);
+            const later = hanOf(item.before + item.after + item.answer + item.wrong.join('')).filter(k => !isSchoolKanji(k));
+            if (later.length > 0) errors.push(`${where}: not taught in grade school: ${later.join('')}`);
+        }
+        expect(errors).toEqual([]);
+    });
+});
+
+describe('漢検: 誤字訂正', () => {
+    it('the wrong kanji is in the sentence, sounds like the right one, and there are 4 kanji to choose from', () => {
+        const errors: string[] = [];
+        for (const item of gojiList) {
+            const kanji = hanOf(item.sentence);
+            if (!kanji.includes(item.wrong)) errors.push(`${item.sentence}: ${item.wrong} is not in it`);
+            if (new Set(kanji).size < 4) errors.push(`${item.sentence}: at least 4 kanji`);
+            if (!(readingsOf.get(item.wrong) || []).some(r => hasReading(item.right, r))) errors.push(`${item.sentence}: ${item.wrong} and ${item.right} must share a reading`);
+            const later = [...kanji, item.right].filter(k => !isSchoolKanji(k));
+            if (later.length > 0) errors.push(`${item.sentence}: not taught in grade school: ${later.join('')}`);
+        }
+        expect(errors).toEqual([]);
+    });
+});
+
+describe('漢検: 四字熟語', () => {
+    it('4 school kanji; the blank is one of them, read as given, with 3 other kanji of that reading', () => {
+        const errors: string[] = [];
+        for (const item of yojiList) {
+            const chars = [...item.word];
+            if (chars.length !== 4 || !chars.every(isSchoolKanji)) errors.push(`${item.word}: 4 school kanji`);
+            if (chars.filter(c => c === item.blank).length !== 1) errors.push(`${item.word}: the blank ${item.blank} must be in it once`);
+            if (!hasReading(item.blank, item.blankReading)) errors.push(`${item.word}: ${item.blankReading} is not a reading of ${item.blank}`);
+            if (!item.reading.includes(item.blankReading)) errors.push(`${item.word}: ${item.blankReading} is not in ${item.reading}`);
+            const others = kanjiDatabase.filter(k => k.kanji !== item.blank && !chars.includes(k.kanji) && k.readings.includes(item.blankReading));
+            if (others.length < 3) errors.push(`${item.word}: only ${others.length} other kanji read ${item.blankReading}`);
+        }
+        expect(errors).toEqual([]);
     });
 });

@@ -6,10 +6,12 @@ import * as Lynx from '../core/lynx';
 import { GRADES, REWARDS, formatBest, recordMode, type Mode } from '../core/quiz';
 import * as Records from '../core/records';
 import { battleAvailable } from '../cloud';
-import { chooseCount, chooseGrade, chooseStrokeOrder, earned, fromRecords, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
+import { KYUS, levelOf, passes, recordId } from '../core/kanken';
+import { chooseCount, chooseGrade, chooseKankenKyu, chooseStrokeOrder, earned, fromRecords, kankenTitle, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
 import { startQuiz } from '../app/session';
 import { openPracticeList } from '../app/practice';
 import { openBattle } from '../app/battle';
+import { startKanken } from '../app/kanken';
 import AccountBox from './AccountBox.vue';
 
 const MODES: { mode: Mode; title?: string; text: string }[] = [
@@ -23,6 +25,12 @@ const MODES: { mode: Mode; title?: string; text: string }[] = [
 const bests = fromRecords(() =>
     Object.fromEntries(MODES.map(({ mode }) => [mode, Records.getBest(Records.itemId(recordMode(mode, selection.strokeOrder), selection.grade, selection.count))])));
 const days = fromRecords(() => Records.activeDayCount());
+// 漢検もぎ試験: the best score of the chosen 級
+const kankenBest = fromRecords(() => {
+    const best = Records.getBest(recordId(selection.kankenKyu));
+    if (!best) return '';
+    return `じこベスト ${best.best}点${passes(levelOf(selection.kankenKyu), best.best) ? '（合格）' : ''}`;
+});
 
 const counts = fromRecords(() => {
     const yomi = Records.getCollected('yomi');
@@ -60,7 +68,11 @@ onMounted(() => {
                     <p class="lead">1〜6年生の 漢字を、4たくの クイズで おぼえよう。</p>
                 </div>
                 <!-- The lynx from Wordlynx (core/lynx.ts), wearing the accessories won from the ずかん -->
-                <button type="button" id="lynx-btn" class="lynx" aria-label="ヤマネコの きせかえを ひらく" @click="kisekaeOpen = true" v-html="lynxSvg"></button>
+                <div class="lynx-box">
+                    <button type="button" id="lynx-btn" class="lynx" aria-label="ヤマネコの きせかえを ひらく" @click="kisekaeOpen = true" v-html="lynxSvg"></button>
+                    <!-- 漢検もぎ試験: the highest level passed -->
+                    <p v-if="kankenTitle" id="lynx-title" class="lynx-title">{{ kankenTitle }}</p>
+                </div>
             </header>
 
             <div class="stats">
@@ -147,6 +159,22 @@ onMounted(() => {
                         </button>
                     </div>
                 </div>
+                <!-- 漢検もぎ試験: 10級 (1年生) to 5級 (6年生) -->
+                <div class="mode-card kanken-card">
+                    <div class="mode-text">
+                        <h2><ruby>漢検<rt>かんけん</rt></ruby>もぎ試験</h2>
+                        <p>漢字検定と 同じ しゅるいの 問題に ちょうせん！ 100点 まんてんで、合格できるか たしかめよう。</p>
+                        <p id="best-kanken" class="best" :hidden="!kankenBest">{{ kankenBest }}</p>
+                    </div>
+                    <button type="button" id="start-kanken" class="btn btn-primary start-btn" @click="startKanken(selection.kankenKyu)">スタート</button>
+                    <div class="mode-option">
+                        <div class="seg kanken-kyus" role="group" aria-label="級">
+                            <button v-for="kyu in KYUS" :key="kyu" type="button" class="seg-option" :class="{ active: selection.kankenKyu === kyu }"
+                                :aria-pressed="selection.kankenKyu === kyu ? 'true' : 'false'" @click="chooseKankenKyu(kyu)">{{ kyu }}級</button>
+                        </div>
+                        <p class="kanken-pass">{{ levelOf(selection.kankenKyu).grade }}年生の 漢字まで・{{ levelOf(selection.kankenKyu).pass }}点 以上で 合格</p>
+                    </div>
+                </div>
             </section>
         </div>
 
@@ -166,6 +194,7 @@ onMounted(() => {
                     <li>「手書き」では、「(あか)いくつ」の かっこの 読みの 漢字を、マスに 指や ペンで 書いて「こたえる」を おします。1・2年生は すこし くずれても 正解に なり、学年が 上がるほど きびしく なります。「書き順も みる」を ON に すると、書き順と 書く 向きが お手本と ちがうときは 不正解に なります。</li>
                     <li>手書きの「練習」では、えらんだ 漢字の お手本を 1画ずつ なぞってから、お手本を 見ないで 書きます。なんかい くり返すかは「回数」で えらべます。手書きで まちがえた 漢字も、けっかの 画面から なぞって れんしゅう できます。</li>
                     <li>まちがえた 漢字は、けっかの 画面から もう一度 れんしゅう できます。</li>
+                    <li>「漢検もぎ試験」では、漢字検定の 10級（1年生）〜5級（6年生）と 同じ しゅるいの 問題に 答えます。読み・書き取りの ほか、上の 級では 部首・送り仮名・対義語・同音異字なども 出ます。書き取りは マスに 手で 書きます。時間の せいげんは なく、答え合わせは さいごに まとめて します。10〜8級は 80点、7〜5級は 70点 以上で 合格。合格すると、ヤマネコの 下に「漢検◯級相当」と 出ます。</li>
                     <li class="howto-credit">手書きの 字の形と 書き順は <a href="https://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (© Ulrich Apel, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>) を もとに しています。</li>
                 </ul>
             </details>

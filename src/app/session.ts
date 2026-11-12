@@ -1,13 +1,12 @@
 // --- The one-player quiz: 漢字から読み, 読みから漢字, 熟語くみたて, 意味かるた ---
 import { reactive } from 'vue';
 import type { JukugoItem } from '../data/jukugo';
-import { reibunList, type Reibun } from '../data/reibun';
 import type { Stroke, Verdict } from '../core/handwriting';
 import * as Karuta from '../core/karuta';
 import * as Lynx from '../core/lynx';
 import {
     KANJI_KINDS, KUMITATE_TIME_LIMIT, NEXT_QUESTION_MS, TEGAKI_TIME_LIMIT, TIME_LIMIT, choicesFor, earnedRewards, formatBest, isRightWord,
-    kanjiKindOf, kanjiQuestions, recordMode, makeTiles, phraseMeaning, rankOf, rewardNews, shuffle, type KanjiQuestion, type Mode
+    kanjiKindOf, kanjiQuestions, recordMode, makeTiles, phraseMeaning, rankOf, rewardNews, shuffle, tegakiQuestion, type KanjiQuestion, type Mode, type TegakiQuestion
 } from '../core/quiz';
 import * as Records from '../core/records';
 import { initAudio, playResultSound, playSound } from '../core/sound';
@@ -15,10 +14,7 @@ import { blurActive, goHome, selection, showScreen } from './state';
 import { clearFeedback, kanjiNote, layField, nextCard, quiz, showCard, wordNote } from './quiz-view';
 import { debugInfo, tegakiDebug, tegakiKitOrSay, tegakiPad, verdictMarks, verdictMessage, type TegakiKit } from './tegaki';
 
-// A 手書き question: a kanji and the phrase that asks for it ("(あか)いくつ")
-export interface TegakiQuestion extends KanjiQuestion {
-    phrase: Reibun;
-}
+export type { TegakiQuestion };
 export type Question = KanjiQuestion | TegakiQuestion | JukugoItem;
 const isWord = (item: Question): item is JukugoItem => 'word' in item;
 // 手書き: the model and the judging, once loaded
@@ -67,17 +63,6 @@ const RESUME_MS = 700;
 
 const current = () => questions[index];
 
-// One of the phrases of the kanji, and the reading it asks about
-function tegakiQuestion(item: KanjiQuestion): TegakiQuestion {
-    const phrases = reibunList.get(item.kanji) ?? [];
-    const phrase = shuffle([...phrases])[0] ?? { before: '', reading: item.targetReading, after: '' };
-    // The reading in the phrase may sound a little different (がっこう: がく → がっ)
-    const targetReading = item.readings.includes(phrase.reading)
-        ? phrase.reading
-        : item.readings.find(r => r.slice(1) === phrase.reading.slice(1) || r.slice(0, -1) === phrase.reading.slice(0, -1)) ?? phrase.reading;
-    return { ...item, targetReading, phrase };
-}
-
 // reviewItems: the questions missed last time, asked again with the same readings
 export function startQuiz(mode: Mode, reviewItems?: Question[]) {
     initAudio();
@@ -108,7 +93,7 @@ export function startQuiz(mode: Mode, reviewItems?: Question[]) {
         questions = Karuta.pickWords(shuffle(Karuta.wordsFor(selection.grade)), [], selection.count);
         itemId = Records.itemId(mode, selection.grade, selection.count);
     } else if (mode === 'tegaki') {
-        questions = kanjiQuestions(selection.grade, selection.count).map(tegakiQuestion);
+        questions = kanjiQuestions(selection.grade, selection.count).map(item => tegakiQuestion(item));
         strokeOrder = selection.strokeOrder;
         itemId = Records.itemId(recordMode(mode, strokeOrder), selection.grade, selection.count);
     } else if (mode === 'kumitate') {
