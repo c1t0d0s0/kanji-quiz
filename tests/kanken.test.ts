@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { createRng } from '../src/core/battle';
 import {
-    KANKEN_LEVELS, KYUS, examLevel, kankenTitle, kyuForGrade, levelOf, passes, recordId, scoreOf, sectionScores, type KankenQuestion, type Kyu
+    KANKEN_LEVELS, KYUS, examLevel, kankenTitle, partName, kyuForGrade, levelOf, passes, recordId, scoreOf, sectionScores, type KankenQuestion, type Kyu
 } from '../src/core/kanken';
 import { buildExam, splitReading } from '../src/core/kanken-exam';
 import type { Progress } from '../src/core/records';
@@ -61,6 +61,10 @@ describe('漢検: the levels', () => {
         // The same kinds, in the same order, as the real exam
         for (const kyu of KYUS) expect(examLevel(kyu, 'mini').sections.map(s => s.type)).toEqual([...new Set(levelOf(kyu).sections.map(s => s.type))]);
         expect(examLevel(8)).toBe(levelOf(8));
+    });
+
+    it('the sections are numbered as on the exam paper', () => {
+        expect([1, 2, 9, 10, 11, 20].map(partName)).toEqual(['（一）', '（二）', '（九）', '（十）', '（十一）', '（二十）']);
     });
 
     it('the grade chosen on the home screen gives the level', () => {

@@ -30,6 +30,8 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const size = ref(0);
 
 let strokes: Stroke[] = [];
+// Writing to put back (in a square of side 1) once the square has its size
+let pending: Stroke[] | null = null;
 // The pointer writing now; any other finger is ignored
 let pointer: number | null = null;
 
@@ -80,6 +82,7 @@ function changed() {
 
 function clear() {
     strokes = [];
+    pending = null;
     pointer = null;
     highlighted.value = '';
     redraw();
@@ -151,6 +154,7 @@ function fit() {
         // Stretch what was written to the new size
         const ratio = canvas.value && canvas.value.clientWidth ? next / canvas.value.clientWidth : 1;
         if (ratio !== 1) strokes = strokes.map(st => st.map(p => ({ x: p.x * ratio, y: p.y * ratio })));
+        if (pending) put(pending);
         updateHighlight();
         requestAnimationFrame(redraw);
     }
@@ -162,7 +166,27 @@ onMounted(() => {
 });
 onBeforeUnmount(() => observer?.disconnect());
 
-defineExpose({ strokes: () => strokes, size: () => size.value, clear, undo });
+// What was written, in a square of side 1 (to keep it and put it back later)
+function saved(): Stroke[] {
+    const side = size.value || 1;
+    return strokes.map(st => st.map(p => ({ x: p.x / side, y: p.y / side })));
+}
+
+function put(writing: readonly Stroke[]) {
+    strokes = writing.map(st => st.map(p => ({ x: p.x * size.value, y: p.y * size.value })));
+    pending = null;
+    requestAnimationFrame(redraw);
+    changed();
+}
+
+// Puts back writing kept with saved() (when the square has no size yet, as soon as it has one)
+function load(writing: readonly Stroke[]) {
+    clear();
+    if (size.value > 0) put(writing);
+    else pending = writing.map(st => st.slice());
+}
+
+defineExpose({ strokes: () => strokes, size: () => size.value, clear, undo, saved, load });
 </script>
 
 <template>

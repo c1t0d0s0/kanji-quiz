@@ -162,6 +162,14 @@ export interface KakiQuestion extends Base {
 export type KankenQuestion = ChoiceQuestion | GojiQuestion | KakiQuestion;
 
 // --- Marking and the title ---
+// The number of a section (大問) as on the exam paper: （一）, （二） … （十一）
+const DIGITS = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+export function partName(n: number): string {
+    const tens = Math.floor(n / 10);
+    const word = (tens === 0 ? '' : tens === 1 ? '十' : DIGITS[tens] + '十') + DIGITS[n % 10];
+    return `（${word}）`;
+}
+
 // "v2": the records of the exams of 100 points (before they were shaped like the real 漢検) are not mixed in
 export const recordId = (kyu: Kyu, mode: ExamMode = 'full') => (mode === 'mini' ? `kanken2-mini-k${kyu}` : `kanken2-k${kyu}`);
 
