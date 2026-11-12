@@ -317,3 +317,27 @@ describe('漢検: 四字熟語', () => {
         expect(errors).toEqual([]);
     });
 });
+
+// Enough of each kind that the 漢検もぎ試験 does not ask the same questions every time
+// (9級 asks 10 対義語 of 2年生 kanji; 5級 to 7級 ask 10 to 18 of each kind)
+describe('漢検: enough questions of each kind', () => {
+    it('many items of each kind, also of the low grades', () => {
+        const upTo = (items: readonly { grade: number }[], grade: number) => items.filter(item => item.grade <= grade).length;
+        const taigi = pairList.filter(p => p.kind === 'taigi');
+        const counts = {
+            taigi2: upTo(taigi, 2), taigi3: upTo(taigi, 3), taigi: taigi.length,
+            ruigi: pairList.filter(p => p.kind === 'ruigi').length,
+            goji: gojiList.length, yoji: yojiList.length, okurigana: okuriganaList.length,
+            douon: douonList.filter(d => !d.kun).length, dokun: douonList.filter(d => d.kun).length
+        };
+        expect(counts.taigi2).toBeGreaterThanOrEqual(60);
+        expect(counts.taigi3).toBeGreaterThanOrEqual(120);
+        expect(counts.taigi).toBeGreaterThanOrEqual(280);
+        expect(counts.ruigi).toBeGreaterThanOrEqual(160);
+        expect(counts.goji).toBeGreaterThanOrEqual(300);
+        expect(counts.yoji).toBeGreaterThanOrEqual(140);
+        expect(counts.okurigana).toBeGreaterThanOrEqual(230);
+        expect(counts.douon).toBeGreaterThanOrEqual(500);
+        expect(counts.dokun).toBeGreaterThanOrEqual(140);
+    });
+});
