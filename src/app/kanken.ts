@@ -1,10 +1,11 @@
 // --- 漢検もぎ試験: one exam, from the first question to the result ---
-// As in the real exam there is no time limit and nothing is marked until the end. 書き取り is
-// written by hand and judged like the 手書き quiz (the stroke order is not judged).
+// As in the real exam there is a time limit (40 minutes for 10級 to 8級, 60 for 7級 to 5級), and
+// nothing is marked until the end: when the time is up, the questions not answered are wrong.
+// 書き取り is written by hand and judged like the 手書き quiz (the stroke order is not judged).
 import { reactive } from 'vue';
 import type { Stroke } from '../core/handwriting';
 import {
-    MAX_SCORE, kankenTitle, levelOf, passes, recordId, scoreOf, sectionLabel, sectionScores, type KankenQuestion, type Kyu
+    kankenTitle, levelOf, passes, recordId, scoreOf, sectionLabel, sectionScores, type KankenQuestion, type Kyu
 } from '../core/kanken';
 import * as Records from '../core/records';
 import { initAudio, playResultSound } from '../core/sound';
@@ -26,9 +27,14 @@ export const exam = reactive({
     found: '',
     // Goes up for every question, so the writing square is cleared
     turn: 0,
-    // The result
+    // The seconds left
+    left: 0,
+    // The result: the score, the full score and the lowest that passes
     score: 0,
+    max: 0,
     pass: 0,
+    // The time ran out before the last question
+    timedOut: false,
     passed: false,
     sections: [] as { label: string; got: number; max: number }[],
     missed: [] as Missed[],
@@ -37,7 +43,12 @@ export const exam = reactive({
     newTitle: ''
 });
 
+// What a question not reached in time shows as the answer given
+export const TIME_UP = '（時間切れ）';
+
 let kit: TegakiKit | null = null;
+let clock: ReturnType<typeof setInterval> | undefined;
+let endsAt = 0;
 let right: boolean[] = [];
 let given: string[] = [];
 
@@ -72,7 +83,23 @@ export async function startKanken(kyu: Kyu) {
     exam.turn++;
     right = [];
     given = [];
+    startClock(levelOf(kyu).minutes);
     showScreen('kanken');
+}
+
+function startClock(minutes: number) {
+    stopClock();
+    endsAt = Date.now() + minutes * 60_000;
+    exam.left = minutes * 60;
+    clock = setInterval(() => {
+        exam.left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+        if (exam.left === 0) finish();
+    }, 250);
+}
+
+function stopClock() {
+    clearInterval(clock);
+    clock = undefined;
 }
 
 function answer(ok: boolean, text: string) {
@@ -121,27 +148,34 @@ export function skip() {
 export const modelOf = (kanji: string) => kit?.strokes[kanji] ?? [];
 
 function finish() {
+    if (exam.phase !== 'exam') return;
+    stopClock();
+    // Time is up: the questions not answered are wrong
+    const timedOut = exam.index < exam.questions.length;
     const level = levelOf(exam.kyu);
     const score = scoreOf(exam.questions, right);
     const titleBefore = kankenTitle(Records.getBest);
-    const recorded = Records.recordResult(recordId(exam.kyu), score, MAX_SCORE);
+    const recorded = Records.recordResult(recordId(exam.kyu), score, level.max);
     const titleAfter = kankenTitle(Records.getBest);
     Object.assign(exam, {
         phase: 'result',
         score,
+        max: level.max,
+        timedOut,
         pass: level.pass,
         passed: passes(level, score),
         sections: sectionScores(exam.kyu, exam.questions, right),
-        missed: exam.questions.map((question, i) => ({ question, given: given[i] ?? '' })).filter((_, i) => !right[i]),
+        missed: exam.questions.map((question, i) => ({ question, given: given[i] ?? (i >= exam.index ? TIME_UP : '') })).filter((_, i) => !right[i]),
         bestNote: recorded.previous
             ? { text: recorded.isBest ? 'じこベスト こうしん！' : `じこベスト ${recorded.previous.best}点`, isNew: recorded.isBest }
             : null,
         newTitle: titleAfter && titleAfter !== titleBefore ? titleAfter : ''
     });
     window.scrollTo(0, 0);
-    playResultSound(score);
+    playResultSound(Math.round((score / level.max) * 100));
 }
 
 export function quitKanken() {
+    stopClock();
     goHome();
 }

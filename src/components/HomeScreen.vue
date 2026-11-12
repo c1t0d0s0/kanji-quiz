@@ -29,7 +29,8 @@ const days = fromRecords(() => Records.activeDayCount());
 const kankenBest = fromRecords(() => {
     const best = Records.getBest(recordId(selection.kankenKyu));
     if (!best) return '';
-    return `じこベスト ${best.best}点${passes(levelOf(selection.kankenKyu), best.best) ? '（合格）' : ''}`;
+    const level = levelOf(selection.kankenKyu);
+    return `じこベスト ${best.best}点 / ${level.max}点${passes(level, best.best) ? '（合格）' : ''}`;
 });
 
 const counts = fromRecords(() => {
@@ -163,7 +164,7 @@ onMounted(() => {
                 <div class="mode-card kanken-card">
                     <div class="mode-text">
                         <h2><ruby>漢検<rt>かんけん</rt></ruby>もぎ試験</h2>
-                        <p>漢字検定と 同じ しゅるいの 問題に ちょうせん！ 100点 まんてんで、合格できるか たしかめよう。</p>
+                        <p>漢字検定と 同じ 問題の 数と 時間で ちょうせん！ 合格できるか たしかめよう。（{{ levelOf(selection.kankenKyu).minutes }}分・{{ levelOf(selection.kankenKyu).max }}点まんてん）</p>
                         <p id="best-kanken" class="best" :hidden="!kankenBest">{{ kankenBest }}</p>
                     </div>
                     <button type="button" id="start-kanken" class="btn btn-primary start-btn" @click="startKanken(selection.kankenKyu)">スタート</button>

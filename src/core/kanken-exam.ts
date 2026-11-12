@@ -4,8 +4,9 @@ import { kanjiDatabase, type KanjiItem } from '../data/kanji';
 import { jukugoDatabase, type JukugoItem } from '../data/jukugo';
 import { reibunList, type Reibun } from '../data/reibun';
 import { bushuList, douonList, gojiList, okuriganaList, pairList, yojiList, type Bushu, type WordPair } from '../data/kanken';
-import { kanjiByReading, kanjiReadings, phraseMeaning, shuffle, tegakiQuestion, type Random } from './quiz';
-import { levelOf, mixed, type ChoiceQuestion, type GojiQuestion, type KakiQuestion, type KankenQuestion, type Kyu, type Level, type SectionType } from './kanken';
+import { kanjiByReading, kanjiReadings, phraseMeaning, shuffle, tegakiQuestion, wordsByReading, type Random } from './quiz';
+import { strokes as kanjiStrokes } from '../data/kanjivg';
+import { levelOf, mixed, withRuigi, type ChoiceQuestion, type GojiQuestion, type KakiQuestion, type KankenQuestion, type Kyu, type Level, type SectionType } from './kanken';
 
 const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
 const gradeOfKanji = (k: string) => kanjiGrade.get(k) ?? 7;
@@ -82,7 +83,7 @@ function wrongWordReadings(item: JukugoItem, random: Random): string[] {
 
 function yomiFromWord(item: JukugoItem, points: number, random: Random): ChoiceQuestion {
     return {
-        kind: 'choice', section: 'yomi', points, grade: item.grade,
+        kind: 'choice', section: 'yomi', points, part: 0, grade: item.grade,
         prompt: { lead: '読みを えらぼう', before: '', mark: item.word, after: '' },
         choices: choicesOf(item.reading, wrongWordReadings(item, random), random),
         answer: item.reading,
@@ -96,7 +97,7 @@ function yomiFromPhrase(item: KanjiItem, phrase: Reibun, points: number, random:
     const sameLength = shuffle(kanjiDatabase.filter(k => k.grade <= item.grade && k.kanji !== item.kanji).flatMap(k => k.readings)
         .filter(r => r.length === phrase.reading.length && !item.readings.includes(r)), random);
     return {
-        kind: 'choice', section: 'yomi', points, grade: item.grade,
+        kind: 'choice', section: 'yomi', points, part: 0, grade: item.grade,
         prompt: { lead: '──の 漢字の 読みを えらぼう', before: phrase.before, mark: item.kanji, after: phrase.after },
         choices: choicesOf(phrase.reading, [...others.slice(0, 2), ...sameLength], random),
         answer: phrase.reading,
@@ -123,7 +124,7 @@ function kakiQuestions(level: Level, count: number, points: number, random: Rand
     return pick(items, level.grade, count, random).map(item => {
         const q = tegakiQuestion({ ...item, targetReading: item.readings[0] }, random);
         return {
-            kind: 'kaki', section: 'kaki', points, grade: item.grade, kanji: item.kanji, phrase: q.phrase,
+            kind: 'kaki', section: 'kaki', points, part: 0, grade: item.grade, kanji: item.kanji, phrase: q.phrase,
             hint: phraseMeaning(item.kanji, q.phrase),
             explain: `${q.phrase.before}${item.kanji}${q.phrase.after}（${q.phrase.before}${q.phrase.reading}${q.phrase.after}）`
         };
@@ -147,14 +148,14 @@ function bushuQuestions(level: Level, count: number, points: number, random: Ran
             const sibling = bushuGroups.filter(g => g.bushu === b.bushu && g.name !== b.name).map(g => g.name);
             const others = shuffle(bushuGroups.map(g => g.name).filter(n => n !== b.name), random);
             return {
-                kind: 'choice', section: 'bushu', points, grade: item.grade,
+                kind: 'choice', section: 'bushu', points, part: 0, grade: item.grade,
                 prompt: { lead: '部首名を えらぼう', before: '', mark: item.kanji, after: '' },
                 choices: choicesOf(b.name, [...sibling.slice(0, 1), ...others], random), answer: b.name, explain
             };
         }
         const others = shuffle(bushuGroups.map(g => g.bushu).filter(r => r !== b.bushu && shownAt(r, level.grade)), random);
         return {
-            kind: 'choice', section: 'bushu', points, grade: item.grade,
+            kind: 'choice', section: 'bushu', points, part: 0, grade: item.grade,
             prompt: { lead: '部首を えらぼう', before: '', mark: item.kanji, after: '' },
             choices: choicesOf(b.bushu, others, random), answer: b.bushu, explain
         };
@@ -169,7 +170,7 @@ function okuriganaQuestions(level: Level, count: number, points: number, random:
         for (let k = 1; k <= item.reading.length; k++) if (k !== item.stem.length) cuts.push(k);
         cuts.sort((a, b) => Math.abs(a - item.stem.length) - Math.abs(b - item.stem.length) || random() - 0.5);
         return {
-            kind: 'choice', section: 'okurigana', points, grade: item.grade,
+            kind: 'choice', section: 'okurigana', points, part: 0, grade: item.grade,
             prompt: { lead: '漢字と 送りがなで 正しく 書いたものを えらぼう', before: '', mark: item.reading, after: '' },
             choices: choicesOf(item.word, cuts.map(k => item.kanji + item.reading.slice(k)), random),
             answer: item.word, explain: `${item.reading} → ${item.word}`
@@ -198,7 +199,7 @@ function pairQuestion(pair: WordPair, level: Level, points: number, random: Rand
     const others = [...words.filter(w => shape(w) === shape(answer)), ...words.filter(w => [...w].length === [...answer].length), ...words];
     const taigi = pair.kind === 'taigi';
     return {
-        kind: 'choice', section: 'taigi', points, grade: pair.grade,
+        kind: 'choice', section: 'taigi', points, part: 0, grade: pair.grade,
         prompt: { lead: taigi ? '反対の 意味の ことば（対義語）を えらぼう' : 'にた 意味の ことば（類義語）を えらぼう', before: '', mark: shown, after: taigi ? ' ⇔ ？' : ' ＝ ？' },
         choices: choicesOf(answer, others, random), answer,
         explain: `${shown} ${taigi ? '⇔' : '＝'} ${answer}`
@@ -206,7 +207,7 @@ function pairQuestion(pair: WordPair, level: Level, points: number, random: Rand
 }
 
 function pairQuestions(level: Level, count: number, points: number, random: Random): ChoiceQuestion[] {
-    const ruigi = mixed(level) ? Math.floor(count / 2) : 0;
+    const ruigi = withRuigi(level) ? Math.floor(count / 2) : 0;
     const taigi = pick(pairList.filter(p => p.kind === 'taigi'), level.grade, count - ruigi, random);
     const similar = pick(pairList.filter(p => p.kind === 'ruigi'), level.grade, ruigi, random);
     return [...taigi, ...similar].map(pair => pairQuestion(pair, level, points, random));
@@ -229,7 +230,7 @@ function douonQuestions(level: Level, count: number, points: number, random: Ran
     const on = pick(douonList.filter(d => !d.kun), level.grade, count - kun, random);
     const kunItems = pick(douonList.filter(d => d.kun), level.grade, kun, random);
     return [...on, ...kunItems].map(item => ({
-        kind: 'choice', section: 'douon', points, grade: item.grade,
+        kind: 'choice', section: 'douon', points, part: 0, grade: item.grade,
         prompt: { lead: 'カタカナの ところに 合う 漢字を えらぼう', before: item.before, mark: toKatakana(item.reading), after: item.after },
         choices: choicesOf(item.answer, [...shuffle(item.wrong, random), ...soundsLike(item.reading, item.answer, level.grade, random)], random),
         answer: item.answer,
@@ -251,7 +252,7 @@ function gojiQuestions(level: Level, count: number, points: number, random: Rand
     return pick(gojiList, level.grade, count, random).map(item => {
         const kanji = [...new Set([...item.sentence].filter(isKanji))];
         return {
-            kind: 'goji', section: 'goji', points, grade: item.grade,
+            kind: 'goji', section: 'goji', points, part: 0, grade: item.grade,
             sentence: item.sentence, wrong: item.wrong, right: item.right,
             find: choicesOf(item.wrong, shuffle(kanji, random), random),
             fix: choicesOf(item.right, soundAlikes(item.right, item.wrong, level.grade, random), random),
@@ -265,7 +266,7 @@ function yojiQuestions(level: Level, count: number, points: number, random: Rand
     return pick(yojiList, level.grade, count, random).map(item => {
         const others = shuffle((kanjiByReading.get(item.blankReading) || []).filter(k => !item.word.includes(k) && gradeOfKanji(k) <= level.grade), random);
         return {
-            kind: 'choice', section: 'yoji', points, grade: item.grade,
+            kind: 'choice', section: 'yoji', points, part: 0, grade: item.grade,
             prompt: { lead: '□に 入る 漢字を えらぼう', before: '', mark: item.word.replace(item.blank, '□'), after: `（${item.reading}）` },
             choices: choicesOf(item.blank, others, random), answer: item.blank,
             explain: `${item.word}（${item.reading}）`
@@ -273,13 +274,70 @@ function yojiQuestions(level: Level, count: number, points: number, random: Rand
     });
 }
 
+// --- 画数 ---
+// The total number of strokes, from the strokes of KanjiVG (the same as taught in school)
+function kakusuQuestions(level: Level, count: number, points: number, random: Random): ChoiceQuestion[] {
+    const items = kanjiDatabase.filter(item => (kanjiStrokes[item.kanji]?.length ?? 0) > 0);
+    return pick(items, level.grade, count, random).map(item => {
+        const n = kanjiStrokes[item.kanji].length;
+        // The numbers next to the right one are the likely mistakes
+        // Numbers alone, and the question in kana: 画 is a kanji of 2年生
+        const near = shuffle([n - 1, n + 1, n - 2, n + 2, n + 3].filter(x => x > 0), random).map(String);
+        return {
+            kind: 'choice', section: 'kakusu', points, part: 0, grade: item.grade,
+            prompt: { lead: 'ぜんぶで なんかくで かくか えらぼう', before: '', mark: item.kanji, after: '' },
+            choices: choicesOf(String(n), near, random),
+            answer: String(n),
+            explain: `${item.kanji} は ${n}かく`
+        };
+    });
+}
+
+// --- 熟語作り・三字熟語 ---
+// A word of the list with one kanji left out (校□ こうてい): the kanji that fits, with kanji of the
+// same sound that make no word of that reading (校体, 校定 …)
+function wordQuestions(length: number, section: 'jukugo' | 'sanji') {
+    return (level: Level, count: number, points: number, random: Random): ChoiceQuestion[] => {
+        const words = jukugoDatabase.filter(item => !item.jukujikun && [...item.word].length === length && splitReading(item.word, item.reading));
+        return pick(words, level.grade, count, random).map(item => {
+            const chars = [...item.word];
+            const parts = splitReading(item.word, item.reading) as string[];
+            const at = Math.floor(random() * chars.length);
+            const right = chars[at];
+            const sameReading = new Set(wordsByReading.get(item.reading) || []);
+            const fits = (k: string) => k !== right && gradeOfKanji(k) <= level.grade &&
+                !sameReading.has([...chars.slice(0, at), k, ...chars.slice(at + 1)].join(''));
+            const alike = (kanjiByReading.get(parts[at]) || []).filter(fits);
+            const any = kanjiDatabase.filter(k => k.grade === level.grade).map(k => k.kanji).filter(fits);
+            const blanked = [...chars.slice(0, at), '□', ...chars.slice(at + 1)].join('');
+            return {
+                kind: 'choice', section, points, part: 0, grade: item.grade,
+                prompt: { lead: '□に 入る 漢字を えらんで 熟語を 作ろう', before: '', mark: blanked, after: `（${item.reading}）` },
+                choices: choicesOf(right, [...shuffle(alike, random), ...shuffle(any, random)], random),
+                answer: right,
+                explain: `${item.word}（${item.reading}）`
+            };
+        });
+    };
+}
+
 const BUILDERS: Record<SectionType, (level: Level, count: number, points: number, random: Random) => KankenQuestion[]> = {
     yomi: yomiQuestions, kaki: kakiQuestions, bushu: bushuQuestions, okurigana: okuriganaQuestions,
-    taigi: pairQuestions, douon: douonQuestions, goji: gojiQuestions, yoji: yojiQuestions
+    taigi: pairQuestions, douon: douonQuestions, goji: gojiQuestions, yoji: yojiQuestions,
+    kakusu: kakusuQuestions, jukugo: wordQuestions(2, 'jukugo'), sanji: wordQuestions(3, 'sanji')
 };
 
-// The whole exam, section by section, in the order of the table
+// The whole exam, section by section, in the order of the real one. The questions of one kind are
+// made together (no question twice, also when two sections ask the same kind with other points)
+// and then dealt to its sections, each with its own points
 export function buildExam(kyu: Kyu, random: Random = Math.random): KankenQuestion[] {
     const level = levelOf(kyu);
-    return level.sections.flatMap(section => BUILDERS[section.type](level, section.count, section.points, random));
+    const made = new Map<SectionType, KankenQuestion[]>();
+    for (const type of new Set(level.sections.map(section => section.type))) {
+        const count = level.sections.filter(section => section.type === type).reduce((n, section) => n + section.count, 0);
+        const points = level.sections.find(section => section.type === type)!.points;
+        made.set(type, shuffle(BUILDERS[type](level, count, points, random), random));
+    }
+    return level.sections.flatMap((section, part) =>
+        (made.get(section.type) as KankenQuestion[]).splice(0, section.count).map(q => ({ ...q, part, points: section.points })));
 }

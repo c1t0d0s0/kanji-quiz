@@ -2846,3 +2846,33 @@ button {
 .kanken .tegaki-actions {
     flex-wrap: wrap;
 }
+
+/* 漢検もぎ試験: the time left, and the full score after the score */
+.kanken-clock {
+    flex: none;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px var(--rule);
+    background: var(--paper);
+    font-family: var(--hand);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.kanken-clock.is-hurry {
+    background: var(--red-soft);
+    box-shadow: 0 0 0 2px var(--red);
+    color: var(--red);
+}
+
+.kanken-max {
+    color: var(--muted);
+    font-size: 0.5em;
+}
+
+.kanken-timeout {
+    color: var(--red);
+    font-weight: 700;
+    text-align: center;
+}

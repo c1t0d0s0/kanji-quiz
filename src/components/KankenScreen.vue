@@ -3,7 +3,7 @@
 import { computed, ref, watch } from 'vue';
 import { levelOf } from '../core/kanken';
 import { screen } from '../app/state';
-import { choose, current, exam, quitKanken, sectionOf, skip, startKanken, submitWriting, unfind } from '../app/kanken';
+import { TIME_UP, choose, current, exam, quitKanken, sectionOf, skip, startKanken, submitWriting, unfind } from '../app/kanken';
 import Hanamaru from './Hanamaru.vue';
 import WritingPad from './WritingPad.vue';
 
@@ -38,6 +38,9 @@ function answerWriting() {
 }
 
 const what = (given: string) => (given ? given : 'わからない');
+// The time left, as 39:58; the last 5 minutes are marked
+const clock = computed(() => `${Math.floor(exam.left / 60)}:${String(exam.left % 60).padStart(2, '0')}`);
+const hurry = computed(() => exam.left <= 300);
 </script>
 
 <template>
@@ -51,6 +54,7 @@ const what = (given: string) => (given ? given : 'わからない');
                     <span class="kanken-counter">第{{ exam.index + 1 }}問 / {{ exam.questions.length }}問</span>
                     <span class="badge">漢検{{ exam.kyu }}級</span>
                 </div>
+                <span class="kanken-clock" :class="{ 'is-hurry': hurry }" role="timer" aria-label="のこり時間">のこり {{ clock }}</span>
             </header>
             <div class="progress-container">
                 <div class="kanken-progress" :style="{ width: progress }"></div>
@@ -100,14 +104,15 @@ const what = (given: string) => (given ? given : 'わからない');
                 <Hanamaru :key="exam.turn" :hidden="!exam.passed" />
                 <div>
                     <h1>漢検{{ exam.kyu }}級 もぎ試験</h1>
-                    <p class="result-sub">合格ライン {{ exam.pass }}点 / 100点</p>
+                    <p class="result-sub">合格ライン {{ exam.pass }}点 / {{ exam.max }}点（{{ level.minutes }}分）</p>
                 </div>
             </div>
             <div class="result-score">
-                <p id="kanken-score" class="kanken-score"><b>{{ exam.score }}</b>点</p>
+                <p id="kanken-score" class="kanken-score"><b>{{ exam.score }}</b>点<span class="kanken-max"> / {{ exam.max }}</span></p>
                 <div :key="exam.turn" class="rank-badge kanken-stamp" :class="{ 'is-fail': !exam.passed }">{{ exam.passed ? '合格' : 'もう少し' }}</div>
             </div>
             <p class="kanken-message">{{ exam.passed ? `おめでとう！ 漢検${exam.kyu}級に 合格できる 力が あるよ。` : `あと ${exam.pass - exam.score}点で 合格！ まちがえた 問題を 見なおそう。` }}</p>
+            <p class="kanken-timeout" :hidden="!exam.timedOut">時間切れ！ 答えられなかった 問題は まちがいに なるよ。</p>
             <p class="best-note" :class="{ 'is-new': exam.bestNote?.isNew }" :hidden="!exam.bestNote">{{ exam.bestNote?.text ?? '' }}</p>
             <section class="reward kanken-title-won" :hidden="!exam.newTitle">
                 <div class="reward-text">
@@ -129,7 +134,7 @@ const what = (given: string) => (given ? given : 'わからない');
                     <li v-for="(m, i) in exam.missed" :key="i">
                         <span class="kanken-missed-section">{{ sectionOf(m.question) }}</span>
                         <span class="kanken-missed-answer">{{ m.question.explain }}</span>
-                        <span class="kanken-missed-given">あなたの 答え: {{ what(m.given) }}</span>
+                        <span class="kanken-missed-given">{{ m.given === TIME_UP ? TIME_UP : `あなたの 答え: ${what(m.given)}` }}</span>
                     </li>
                 </ul>
             </section>
