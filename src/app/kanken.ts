@@ -5,7 +5,7 @@
 import { reactive } from 'vue';
 import type { Stroke } from '../core/handwriting';
 import {
-    kankenTitle, levelOf, passes, recordId, scoreOf, sectionLabel, sectionScores, type KankenQuestion, type Kyu
+    examLevel, kankenTitle, levelOf, passes, recordId, scoreOf, sectionLabel, sectionScores, type ExamMode, type KankenQuestion, type Kyu
 } from '../core/kanken';
 import * as Records from '../core/records';
 import { initAudio, playResultSound } from '../core/sound';
@@ -21,6 +21,7 @@ export interface Missed {
 export const exam = reactive({
     phase: 'exam' as 'exam' | 'result',
     kyu: 10 as Kyu,
+    mode: 'full' as ExamMode,
     questions: [] as KankenQuestion[],
     index: 0,
     // 誤字訂正: the kanji picked as wrong in the first step, '' before
@@ -69,21 +70,22 @@ async function examMaker() {
     }
 }
 
-export async function startKanken(kyu: Kyu) {
+export async function startKanken(kyu: Kyu, mode: ExamMode = 'full') {
     initAudio();
     // 書き取り needs the models of the kanji
     if (!(kit ??= await tegakiKitOrSay())) return;
     const maker = await examMaker();
     if (!maker) return;
     exam.kyu = kyu;
-    exam.questions = maker.buildExam(kyu);
+    exam.mode = mode;
+    exam.questions = maker.buildExam(kyu, Math.random, mode);
     exam.index = 0;
     exam.found = '';
     exam.phase = 'exam';
     exam.turn++;
     right = [];
     given = [];
-    startClock(levelOf(kyu).minutes);
+    startClock(examLevel(kyu, mode).minutes);
     showScreen('kanken');
 }
 
@@ -152,10 +154,11 @@ function finish() {
     stopClock();
     // Time is up: the questions not answered are wrong
     const timedOut = exam.index < exam.questions.length;
-    const level = levelOf(exam.kyu);
+    const level = examLevel(exam.kyu, exam.mode);
     const score = scoreOf(exam.questions, right);
+    // Only the real exam counts for the title
     const titleBefore = kankenTitle(Records.getBest);
-    const recorded = Records.recordResult(recordId(exam.kyu), score, level.max);
+    const recorded = Records.recordResult(recordId(exam.kyu, exam.mode), score, level.max);
     const titleAfter = kankenTitle(Records.getBest);
     Object.assign(exam, {
         phase: 'result',
@@ -164,7 +167,7 @@ function finish() {
         timedOut,
         pass: level.pass,
         passed: passes(level, score),
-        sections: sectionScores(exam.kyu, exam.questions, right),
+        sections: sectionScores(level, exam.questions, right),
         missed: exam.questions.map((question, i) => ({ question, given: given[i] ?? (i >= exam.index ? TIME_UP : '') })).filter((_, i) => !right[i]),
         bestNote: recorded.previous
             ? { text: recorded.isBest ? 'じこベスト こうしん！' : `じこベスト ${recorded.previous.best}点`, isNew: recorded.isBest }

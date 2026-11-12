@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import * as Lynx from '../core/lynx';
 import { GRADES, earnedRewards, type Earned } from '../core/quiz';
-import { kankenTitle as titleOf, kyuForGrade, type Kyu } from '../core/kanken';
+import { kankenTitle as titleOf, kyuForGrade, type ExamMode, type Kyu } from '../core/kanken';
 import * as Records from '../core/records';
 
 // --- Records ---
@@ -40,7 +40,8 @@ let urlGrade: string | null = gradeParam && VALID_GRADES.includes(gradeParam) ? 
 // strokeOrder: 手書き also judges the stroke order (off until turned on)
 // practiceTrace / practiceWrite: 手書きの練習 traces and writes each kanji this many times
 // kankenKyu: the level of the 漢検もぎ試験, from the grade (1年生 → 10級); not saved
-export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false, practiceTrace: 1, practiceWrite: 1, kankenKyu: 5 as Kyu });
+// kankenMode: the real exam or the ミニ試験; not saved
+export const selection = reactive({ grade: 'all', count: 10, strokeOrder: false, practiceTrace: 1, practiceWrite: 1, kankenKyu: 5 as Kyu, kankenMode: 'full' as ExamMode });
 
 // The 級 picked on the 漢検 card stays until another grade is chosen
 let kankenPicked = false;
@@ -67,6 +68,10 @@ export function chooseGrade(grade: string) {
 export function chooseKankenKyu(kyu: Kyu) {
     selection.kankenKyu = kyu;
     kankenPicked = true;
+}
+
+export function chooseKankenMode(mode: ExamMode) {
+    selection.kankenMode = mode;
 }
 
 export function chooseCount(count: number) {

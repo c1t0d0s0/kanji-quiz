@@ -6,7 +6,7 @@ import { reibunList, type Reibun } from '../data/reibun';
 import { bushuList, douonList, gojiList, okuriganaList, pairList, yojiList, type Bushu, type WordPair } from '../data/kanken';
 import { kanjiByReading, kanjiReadings, phraseMeaning, shuffle, tegakiQuestion, wordsByReading, type Random } from './quiz';
 import { strokes as kanjiStrokes } from '../data/kanjivg';
-import { levelOf, mixed, withRuigi, type ChoiceQuestion, type GojiQuestion, type KakiQuestion, type KankenQuestion, type Kyu, type Level, type SectionType } from './kanken';
+import { examLevel, mixed, withRuigi, type ChoiceQuestion, type GojiQuestion, type KakiQuestion, type KankenQuestion, type ExamMode, type Kyu, type Level, type SectionType } from './kanken';
 
 const kanjiGrade = new Map(kanjiDatabase.map(item => [item.kanji, item.grade]));
 const gradeOfKanji = (k: string) => kanjiGrade.get(k) ?? 7;
@@ -330,8 +330,8 @@ const BUILDERS: Record<SectionType, (level: Level, count: number, points: number
 // The whole exam, section by section, in the order of the real one. The questions of one kind are
 // made together (no question twice, also when two sections ask the same kind with other points)
 // and then dealt to its sections, each with its own points
-export function buildExam(kyu: Kyu, random: Random = Math.random): KankenQuestion[] {
-    const level = levelOf(kyu);
+export function buildExam(kyu: Kyu, random: Random = Math.random, mode: ExamMode = 'full'): KankenQuestion[] {
+    const level = examLevel(kyu, mode);
     const made = new Map<SectionType, KankenQuestion[]>();
     for (const type of new Set(level.sections.map(section => section.type))) {
         const count = level.sections.filter(section => section.type === type).reduce((n, section) => n + section.count, 0);

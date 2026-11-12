@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // --- 漢検もぎ試験: the exam (one question at a time) and its result ---
 import { computed, ref, watch } from 'vue';
-import { levelOf } from '../core/kanken';
+import { examLevel } from '../core/kanken';
 import { screen } from '../app/state';
 import { TIME_UP, choose, current, exam, quitKanken, sectionOf, skip, startKanken, submitWriting, unfind } from '../app/kanken';
 import Hanamaru from './Hanamaru.vue';
@@ -24,7 +24,8 @@ const options = computed(() => {
 // Kanji choices are drawn bigger
 const kanjiOptions = computed(() => options.value.every(o => [...o].length <= 2 && /\p{Script=Han}/u.test(o)));
 const progress = computed(() => `${(exam.index / Math.max(1, exam.questions.length)) * 100}%`);
-const level = computed(() => levelOf(exam.kyu));
+const level = computed(() => examLevel(exam.kyu, exam.mode));
+const mini = computed(() => exam.mode === 'mini');
 
 // A new question: a clean square
 watch(() => exam.turn, () => {
@@ -52,7 +53,7 @@ const hurry = computed(() => exam.left <= 300);
                 <button type="button" class="home-btn" aria-label="試験を やめて ホームに もどる" @click="quitKanken"><span aria-hidden="true">‹</span>やめる</button>
                 <div class="header-left">
                     <span class="kanken-counter">第{{ exam.index + 1 }}問 / {{ exam.questions.length }}問</span>
-                    <span class="badge">漢検{{ exam.kyu }}級</span>
+                    <span class="badge">漢検{{ exam.kyu }}級{{ mini ? ' ミニ' : '' }}</span>
                 </div>
                 <span class="kanken-clock" :class="{ 'is-hurry': hurry }" role="timer" aria-label="のこり時間">のこり {{ clock }}</span>
             </header>
@@ -103,7 +104,7 @@ const hurry = computed(() => exam.left <= 300);
             <div class="result-head">
                 <Hanamaru :key="exam.turn" :hidden="!exam.passed" />
                 <div>
-                    <h1>漢検{{ exam.kyu }}級 もぎ試験</h1>
+                    <h1>漢検{{ exam.kyu }}級 {{ mini ? 'ミニ試験' : 'もぎ試験' }}</h1>
                     <p class="result-sub">合格ライン {{ exam.pass }}点 / {{ exam.max }}点（{{ level.minutes }}分）</p>
                 </div>
             </div>
@@ -111,7 +112,7 @@ const hurry = computed(() => exam.left <= 300);
                 <p id="kanken-score" class="kanken-score"><b>{{ exam.score }}</b>点<span class="kanken-max"> / {{ exam.max }}</span></p>
                 <div :key="exam.turn" class="rank-badge kanken-stamp" :class="{ 'is-fail': !exam.passed }">{{ exam.passed ? '合格' : 'もう少し' }}</div>
             </div>
-            <p class="kanken-message">{{ exam.passed ? `おめでとう！ 漢検${exam.kyu}級に 合格できる 力が あるよ。` : `あと ${exam.pass - exam.score}点で 合格！ まちがえた 問題を 見なおそう。` }}</p>
+            <p class="kanken-message">{{ exam.passed ? (mini ? '合格の 目安に とどいたよ！ 本番の 試験にも ちょうせんしよう。' : `おめでとう！ 漢検${exam.kyu}級に 合格できる 力が あるよ。`) : `あと ${exam.pass - exam.score}点で 合格！ まちがえた 問題を 見なおそう。` }}</p>
             <p class="kanken-timeout" :hidden="!exam.timedOut">時間切れ！ 答えられなかった 問題は まちがいに なるよ。</p>
             <p class="best-note" :class="{ 'is-new': exam.bestNote?.isNew }" :hidden="!exam.bestNote">{{ exam.bestNote?.text ?? '' }}</p>
             <section class="reward kanken-title-won" :hidden="!exam.newTitle">
@@ -139,7 +140,7 @@ const hurry = computed(() => exam.left <= 300);
                 </ul>
             </section>
             <div class="result-actions">
-                <button type="button" class="btn" @click="startKanken(level.kyu)">もう一度 受ける</button>
+                <button type="button" class="btn" @click="startKanken(exam.kyu, exam.mode)">もう一度 受ける</button>
                 <button type="button" class="btn btn-primary" @click="quitKanken">ホームに もどる</button>
             </div>
         </div>

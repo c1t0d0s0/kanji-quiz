@@ -2655,6 +2655,12 @@ button {
     }
 }
 
+/* ほんばん or ミニ */
+.kanken-modes {
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 0.4rem;
+}
+
 .kanken-pass {
     margin-top: 0.35rem;
     color: var(--muted);

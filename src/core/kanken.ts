@@ -4,6 +4,8 @@
 // points and 60 minutes for 7級 to 5級, passing at 80% and 70%.
 // Kinds of question the app cannot make (筆順, 同じ漢字の読み, 音読み・訓読み, 熟語の構成) are
 // asked as the nearest kind it can: 画数, 読み, 熟語作り. Each section keeps its count and points.
+// The ミニ試験 asks the same kinds in the same order, about a quarter as many (20 questions of 5
+// points in 10 minutes, or 25 of 4 points in 12), out of 100; it does not count for the title.
 // A question only shows kanji of the level's grade or lower, and asks the level's own grade first.
 // The questions themselves are made in kanken-exam.ts, loaded when an exam starts.
 import type { Reibun } from '../data/reibun';
@@ -51,13 +53,40 @@ export const KANKEN_LEVELS: readonly Level[] = [
     // 対義語・類義語 10×2, 熟語作り 6×2, 音と訓 10×2 (読み), 同じ読みの漢字 9×2, 書き取り 20×2
     { kyu: 6, grade: 5, max: 200, pass: 140, minutes: 60, sections: [s('yomi', 20, 1), s('okurigana', 5, 2), s('bushu', 10, 1), s('kakusu', 10, 1), s('jukugo', 10, 2), s('sanji', 10, 2), s('taigi', 10, 2), s('jukugo', 6, 2), s('yomi', 10, 2), s('douon', 9, 2), s('kaki', 20, 2)] },
     // 120問: 読み 20×1, 部首と部首名 10×1, 画数 10×1, 送り仮名 5×2, 音と訓 10×2 (読み), 四字熟語 10×2,
-    // 対義語・類義語 10×2, 熟語作り 5×2, 熟語の構成 10×2 (熟語作り), 同じ読みの漢字 10×2, 書き取り 20×2
-    { kyu: 5, grade: 6, max: 200, pass: 140, minutes: 60, sections: [s('yomi', 20, 1), s('bushu', 10, 1), s('kakusu', 10, 1), s('okurigana', 5, 2), s('yomi', 10, 2), s('yoji', 10, 2), s('taigi', 10, 2), s('jukugo', 15, 2), s('douon', 10, 2), s('kaki', 20, 2)] }
+    // 対義語・類義語 10×2, 熟語作り 5×2, 熟語の構成 10×2 (熟語作り 5×2 と 誤字訂正 5×2), 同じ読みの漢字 10×2,
+    // 書き取り 20×2. 誤字訂正 is not in the sample exam, but in what the real 5級 asks (各級の概要)
+    { kyu: 5, grade: 6, max: 200, pass: 140, minutes: 60, sections: [s('yomi', 20, 1), s('bushu', 10, 1), s('kakusu', 10, 1), s('okurigana', 5, 2), s('yomi', 10, 2), s('yoji', 10, 2), s('taigi', 10, 2), s('jukugo', 10, 2), s('goji', 5, 2), s('douon', 10, 2), s('kaki', 20, 2)] }
 ];
 export const KYUS: readonly Kyu[] = KANKEN_LEVELS.map(level => level.kyu);
 const LEVEL = new Map(KANKEN_LEVELS.map(level => [level.kyu, level]));
 export const levelOf = (kyu: Kyu): Level => LEVEL.get(kyu) as Level;
 export const isKyu = (n: unknown): n is Kyu => LEVEL.has(n as Kyu);
+
+// 'full': the real exam; 'mini': the short one
+export type ExamMode = 'full' | 'mini';
+
+// The ミニ試験 of a level: each kind of question once (sections of the same kind together), as
+// many as in the real exam scaled down to the total (largest remainder), at least one each
+function miniLevel(full: Level): Level {
+    const big = full.max > 150;
+    const total = big ? 25 : 20;
+    const counts = new Map<SectionType, number>();
+    for (const section of full.sections) counts.set(section.type, (counts.get(section.type) ?? 0) + section.count);
+    const all = [...counts.values()].reduce((n, c) => n + c, 0);
+    const shares = [...counts].map(([type, count]) => ({ type, exact: (count * total) / all, count: Math.max(1, Math.floor((count * total) / all)) }));
+    let left = total - shares.reduce((n, x) => n + x.count, 0);
+    for (const x of [...shares].sort((a, b) => (b.exact - Math.floor(b.exact)) - (a.exact - Math.floor(a.exact)))) {
+        if (left <= 0) break;
+        if (x.count > x.exact) continue;
+        x.count++;
+        left--;
+    }
+    const points = 100 / total;
+    return { ...full, max: 100, pass: big ? 70 : 80, minutes: big ? 12 : 10, sections: shares.map(x => s(x.type, x.count, points)) };
+}
+
+const MINI = new Map(KANKEN_LEVELS.map(level => [level.kyu, miniLevel(level)]));
+export const examLevel = (kyu: Kyu, mode: ExamMode = 'full'): Level => (mode === 'mini' ? MINI.get(kyu) as Level : levelOf(kyu));
 
 // The level of a grade chosen on the home screen: 1年生 → 10級 … 6年生 → 5級 (全学年: 5級)
 export function kyuForGrade(grade: string): Kyu {
@@ -134,7 +163,7 @@ export type KankenQuestion = ChoiceQuestion | GojiQuestion | KakiQuestion;
 
 // --- Marking and the title ---
 // "v2": the records of the exams of 100 points (before they were shaped like the real 漢検) are not mixed in
-export const recordId = (kyu: Kyu) => `kanken2-k${kyu}`;
+export const recordId = (kyu: Kyu, mode: ExamMode = 'full') => (mode === 'mini' ? `kanken2-mini-k${kyu}` : `kanken2-k${kyu}`);
 
 export function scoreOf(questions: readonly KankenQuestion[], right: readonly boolean[]): number {
     return questions.reduce((sum, q, i) => sum + (right[i] ? q.points : 0), 0);
@@ -143,8 +172,7 @@ export function scoreOf(questions: readonly KankenQuestion[], right: readonly bo
 export const passes = (level: Level, score: number) => score >= level.pass;
 
 // The points of each kind of question, for the result (sections of the same kind together)
-export function sectionScores(kyu: Kyu, questions: readonly KankenQuestion[], right: readonly boolean[]) {
-    const level = levelOf(kyu);
+export function sectionScores(level: Level, questions: readonly KankenQuestion[], right: readonly boolean[]) {
     const rows = new Map<string, { label: string; got: number; max: number }>();
     level.sections.forEach((section, part) => {
         const label = sectionLabel(section.type, level);

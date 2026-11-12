@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { kanjiDatabase } from '../src/data/kanji';
 import { createRng } from '../src/core/battle';
 import {
-    KANKEN_LEVELS, KYUS, kankenTitle, kyuForGrade, levelOf, passes, recordId, scoreOf, sectionScores, type KankenQuestion, type Kyu
+    KANKEN_LEVELS, KYUS, examLevel, kankenTitle, kyuForGrade, levelOf, passes, recordId, scoreOf, sectionScores, type KankenQuestion, type Kyu
 } from '../src/core/kanken';
 import { buildExam, splitReading } from '../src/core/kanken-exam';
 import type { Progress } from '../src/core/records';
@@ -42,7 +42,25 @@ describe('漢検: the levels', () => {
         expect(kinds(8)).toEqual(['yomi', 'kakusu', 'taigi', 'bushu', 'douon', 'okurigana', 'kaki']);
         expect(kinds(7)).toEqual(['yomi', 'douon', 'kakusu', 'taigi', 'okurigana', 'bushu', 'jukugo', 'kaki']);
         expect(kinds(6)).toEqual(['yomi', 'okurigana', 'bushu', 'kakusu', 'jukugo', 'sanji', 'taigi', 'douon', 'kaki']);
-        expect(kinds(5)).toEqual(['yomi', 'bushu', 'kakusu', 'okurigana', 'yoji', 'taigi', 'jukugo', 'douon', 'kaki']);
+        expect(kinds(5)).toEqual(['yomi', 'bushu', 'kakusu', 'okurigana', 'yoji', 'taigi', 'jukugo', 'goji', 'douon', 'kaki']);
+    });
+
+    it('the ミニ試験: about a quarter of the questions, every kind, out of 100 in about 10 minutes', () => {
+        const mini = (kyu: Kyu) => examLevel(kyu, 'mini').sections.map(s => `${s.type}${s.count}`).join(' ');
+        expect(mini(10)).toBe('yomi10 kakusu3 kaki7');
+        expect(mini(9)).toBe('yomi8 kakusu2 jukugo1 taigi2 kaki7');
+        expect(mini(8)).toBe('yomi8 kakusu2 taigi1 bushu2 douon2 okurigana1 kaki4');
+        expect(mini(7)).toBe('yomi8 douon4 kakusu2 taigi1 okurigana2 bushu2 jukugo2 kaki4');
+        expect(mini(6)).toBe('yomi6 okurigana1 bushu2 kakusu2 jukugo4 sanji2 taigi2 douon2 kaki4');
+        expect(mini(5)).toBe('yomi7 bushu2 kakusu2 okurigana1 yoji2 taigi2 jukugo2 goji1 douon2 kaki4');
+        const shape = KYUS.map(kyu => {
+            const level = examLevel(kyu, 'mini');
+            return [kyu, level.sections.reduce((n, s) => n + s.count, 0), level.sections.reduce((n, s) => n + s.count * s.points, 0), level.pass, level.minutes];
+        });
+        expect(shape).toEqual([[10, 20, 100, 80, 10], [9, 20, 100, 80, 10], [8, 20, 100, 80, 10], [7, 25, 100, 70, 12], [6, 25, 100, 70, 12], [5, 25, 100, 70, 12]]);
+        // The same kinds, in the same order, as the real exam
+        for (const kyu of KYUS) expect(examLevel(kyu, 'mini').sections.map(s => s.type)).toEqual([...new Set(levelOf(kyu).sections.map(s => s.type))]);
+        expect(examLevel(8)).toBe(levelOf(8));
     });
 
     it('the grade chosen on the home screen gives the level', () => {
@@ -88,6 +106,19 @@ describe('漢検: the exam', () => {
         });
     }
 
+    for (const kyu of KYUS) {
+        it(`${kyu}級 ミニ試験: its questions and points, with kanji of the grade or lower, no question twice`, () => {
+            const level = examLevel(kyu, 'mini');
+            for (let seed = 0; seed < 20; seed++) {
+                const qs = buildExam(kyu, createRng(`mini${kyu}${seed}`), 'mini');
+                expect(qs).toHaveLength(level.sections.reduce((n, s) => n + s.count, 0));
+                expect(qs.reduce((n, q) => n + q.points, 0)).toBe(100);
+                for (const q of qs) expect([...shownText(q)].filter(c => (gradeOf.get(c) ?? 0) > level.grade), `${kyu}級 ${q.explain}`).toEqual([]);
+                expect(new Set(qs.map(q => `${q.section}:${q.explain}`)).size).toBe(qs.length);
+            }
+        });
+    }
+
     it('asks mostly the kanji of the level\'s own grade', () => {
         const qs = buildExam(5, createRng('own'));
         expect(qs.filter(q => q.grade === 6).length).toBeGreaterThan(qs.length / 2);
@@ -105,7 +136,7 @@ describe('漢検: marking and the title', () => {
         const right = qs.map((_, i) => i % 2 === 0);
         const score = scoreOf(qs, right);
         expect(score).toBe(qs.filter((_, i) => i % 2 === 0).reduce((n, q) => n + q.points, 0));
-        const sections = sectionScores(8, qs, right);
+        const sections = sectionScores(levelOf(8), qs, right);
         expect(sections.map(s => s.label)).toEqual(['読み', '画数', '対義語', '部首', '同音異字', '送り仮名', '書き取り']);
         expect(sections.reduce((n, s) => n + s.got, 0)).toBe(score);
         expect(sections.reduce((n, s) => n + s.max, 0)).toBe(150);
@@ -123,6 +154,13 @@ describe('漢検: marking and the title', () => {
         expect(kankenTitle(getBest)).toBe('漢検7級相当');
         bests.set(recordId(5), { best: 139, total: 200, at: 0 });
         expect(kankenTitle(getBest)).toBe('漢検7級相当');
+        bests.set(recordId(5), { best: 200, total: 200, at: 0 });
+        expect(kankenTitle(getBest)).toBe('漢検5級相当');
+        // The ミニ試験 is recorded on its own and does not count for the title
+        expect(recordId(6, 'mini')).not.toBe(recordId(6));
+        bests.delete(recordId(10)); bests.delete(recordId(7)); bests.delete(recordId(5));
+        bests.set(recordId(5, 'mini'), { best: 100, total: 100, at: 0 });
+        expect(kankenTitle(getBest)).toBeNull();
         bests.set(recordId(5), { best: 200, total: 200, at: 0 });
         expect(kankenTitle(getBest)).toBe('漢検5級相当');
         // A score of the old exams of 100 points does not count

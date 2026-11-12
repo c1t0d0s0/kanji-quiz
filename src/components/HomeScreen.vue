@@ -6,8 +6,8 @@ import * as Lynx from '../core/lynx';
 import { GRADES, REWARDS, formatBest, recordMode, type Mode } from '../core/quiz';
 import * as Records from '../core/records';
 import { battleAvailable } from '../cloud';
-import { KYUS, levelOf, passes, recordId } from '../core/kanken';
-import { chooseCount, chooseGrade, chooseKankenKyu, chooseStrokeOrder, earned, fromRecords, kankenTitle, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
+import { KYUS, examLevel, passes, recordId } from '../core/kanken';
+import { chooseCount, chooseGrade, chooseKankenKyu, chooseKankenMode, chooseStrokeOrder, earned, fromRecords, kankenTitle, kisekaeOpen, outfit, screen, selection, zukan } from '../app/state';
 import { startQuiz } from '../app/session';
 import { openPracticeList } from '../app/practice';
 import { openBattle } from '../app/battle';
@@ -27,10 +27,16 @@ const bests = fromRecords(() =>
 const days = fromRecords(() => Records.activeDayCount());
 // 漢検もぎ試験: the best score of the chosen 級
 const kankenBest = fromRecords(() => {
-    const best = Records.getBest(recordId(selection.kankenKyu));
+    const best = Records.getBest(recordId(selection.kankenKyu, selection.kankenMode));
     if (!best) return '';
-    const level = levelOf(selection.kankenKyu);
+    const level = examLevel(selection.kankenKyu, selection.kankenMode);
     return `じこベスト ${best.best}点 / ${level.max}点${passes(level, best.best) ? '（合格）' : ''}`;
+});
+
+// The exam chosen on the 漢検 card
+const kankenLevel = computed(() => {
+    const level = examLevel(selection.kankenKyu, selection.kankenMode);
+    return { ...level, questions: level.sections.reduce((n, s) => n + s.count, 0) };
 });
 
 const counts = fromRecords(() => {
@@ -164,16 +170,20 @@ onMounted(() => {
                 <div class="mode-card kanken-card">
                     <div class="mode-text">
                         <h2><ruby>漢検<rt>かんけん</rt></ruby>もぎ試験</h2>
-                        <p>漢字検定と 同じ 問題の 数と 時間で ちょうせん！ 合格できるか たしかめよう。（{{ levelOf(selection.kankenKyu).minutes }}分・{{ levelOf(selection.kankenKyu).max }}点まんてん）</p>
+                        <p>{{ selection.kankenMode === 'mini' ? '同じ しゅるいの 問題を 少しだけ。みじかい 時間で 力だめし！' : '漢字検定と 同じ 問題の 数と 時間で ちょうせん！ 合格できるか たしかめよう。' }}（{{ kankenLevel.minutes }}分・{{ kankenLevel.max }}点まんてん）</p>
                         <p id="best-kanken" class="best" :hidden="!kankenBest">{{ kankenBest }}</p>
                     </div>
-                    <button type="button" id="start-kanken" class="btn btn-primary start-btn" @click="startKanken(selection.kankenKyu)">スタート</button>
+                    <button type="button" id="start-kanken" class="btn btn-primary start-btn" @click="startKanken(selection.kankenKyu, selection.kankenMode)">スタート</button>
                     <div class="mode-option">
                         <div class="seg kanken-kyus" role="group" aria-label="級">
                             <button v-for="kyu in KYUS" :key="kyu" type="button" class="seg-option" :class="{ active: selection.kankenKyu === kyu }"
                                 :aria-pressed="selection.kankenKyu === kyu ? 'true' : 'false'" @click="chooseKankenKyu(kyu)">{{ kyu }}級</button>
                         </div>
-                        <p class="kanken-pass">{{ levelOf(selection.kankenKyu).grade }}年生の 漢字まで・{{ levelOf(selection.kankenKyu).pass }}点 以上で 合格</p>
+                        <div class="seg kanken-modes" role="group" aria-label="試験の 長さ">
+                            <button v-for="m in (['full', 'mini'] as const)" :key="m" type="button" class="seg-option" :class="{ active: selection.kankenMode === m }"
+                                :aria-pressed="selection.kankenMode === m ? 'true' : 'false'" @click="chooseKankenMode(m)">{{ m === 'mini' ? 'ミニ' : 'ほんばん' }} {{ examLevel(selection.kankenKyu, m).minutes }}分</button>
+                        </div>
+                        <p class="kanken-pass">{{ kankenLevel.grade }}年生の 漢字まで・{{ kankenLevel.questions }}問・{{ kankenLevel.pass }}点 以上で 合格{{ selection.kankenMode === 'mini' ? '（しょうごうは ほんばんだけ）' : '' }}</p>
                     </div>
                 </div>
             </section>
