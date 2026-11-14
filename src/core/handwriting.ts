@@ -14,6 +14,9 @@
 //            in the writing (未 and 末, 土 and 士 differ only in that)
 //   meets    pairs of strokes that clearly cross in the model but only touch or stay apart in
 //            the writing, or the other way round (牛 and 午, 矢 and 失 differ only in that)
+// Look-alikes (lookAlikes, only when given): a writing within those limits is still wrong when it
+// is clearly closer to a kanji that looks like the one asked (天 and 夫 in 1年生, where the
+// limits let a line poke out or stop short).
 // The stroke order is judged only when asked (strokeOrder): then, in every grade, each stroke
 // must be written in its turn and the right way round. Young children's kanji lean and wobble a
 // lot, so the other limits are wide in 1年生 and narrow step by step up to 6年生.
@@ -82,6 +85,10 @@ const ASPECT_SLACK = 1.33;
 const DEEP = 0.15;
 const SHALLOW = 0.02;
 const SHORT = 0.08;
+// Look-alikes: the writing is taken for the other kanji when it fits that one better by more than
+// this (in fitCost: parts of the limits, and counts of flips and meetings). Children's untidy
+// writing of the kanji asked is sometimes a little closer to a look-alike: not by this much
+export const LOOK_ALIKE_MARGIN = 0.2;
 
 export interface Measures {
     shape: number;
@@ -127,6 +134,10 @@ export interface Verdict extends Measures {
 export interface JudgeOptions {
     // Also judge the stroke order (and the direction of each stroke)
     strokeOrder?: boolean;
+    // The models of kanji that look like the one asked (e.g. from data/lookalikes.ts): a writing
+    // clearly closer to one of them is wrong (reason 'shape'). Those of another stroke count are
+    // not compared
+    lookAlikes?: readonly (readonly (readonly number[])[])[];
 }
 
 // The model of data/kanjivg.ts ([x1, y1, x2, y2, …] per stroke) as strokes
@@ -534,10 +545,20 @@ export function diagnose(found: Found, limits: Limits): Hint | null {
         m.worst > limits.worst, m.meets > limits.meets, m.flips > limits.flips, m.strokes > limits.strokes, m.shape > limits.shape
     ].filter(Boolean).length;
     if (over === 0 || over > 2 || m.shape > limits.shape * NEAR || m.strokes > limits.strokes * NEAR) return null;
+    return strokeHint(found, limits, m.meets > limits.meets, m.flips > limits.flips);
+}
+
+// The stroke to look at in a writing close to the model: a meeting that differs (when the meetings
+// tell it), a pair of strokes long and short the other way round (when the flips tell it), or else
+// the stroke farthest from where the model puts it
+function strokeHint(found: Found, limits: Limits, byMeets: boolean, byFlips: boolean): Hint | null {
+    const { written, target, groups, pairs } = found;
+    const number = (j: number) => groups[j][0] + 1;
+    const a = written.map(points), b = target.map(points);
     const meetings = meetingMismatches(written, target, pairs);
     const meetingHint = (miss: (typeof meetings)[number]): Hint => ({ kind: miss.cross ? 'poke' : 'stop', stroke: number(miss.stroke), other: number(miss.other) });
-    if (m.meets > limits.meets && meetings.length > 0) return meetingHint(meetings[0]);
-    if (m.flips > limits.flips) {
+    if (byMeets && meetings.length > 0) return meetingHint(meetings[0]);
+    if (byFlips) {
         const flip = flippedPairs(written, target, pairs).sort((x, y) => y.by - x.by)[0];
         if (flip) {
             // A stroke too long because it goes through where it should stop (or too short because
@@ -644,6 +665,21 @@ export function measure(writing: readonly Stroke[], model: readonly (readonly nu
     return { measures, w0, m0, written, target, groups, pairs };
 }
 
+// How well a writing fits a model, to compare two models: the distances as parts of their limits,
+// and the flips and mismatched meetings (one look-alike differs from another in those)
+export function fitCost(m: Measures, limits: Limits) {
+    return m.strokes / limits.strokes + m.worst / limits.worst + m.flips + m.meets;
+}
+
+// One of the look-alikes (of the same stroke count) fits the writing clearly better than the model
+function closerLookAlike(writing: readonly Stroke[], grade: number, cost: number, lookAlikes: readonly (readonly (readonly number[])[])[]) {
+    return lookAlikes.some(other => {
+        const limits = limitsFor(grade, other.length);
+        const found = measure(writing, other, limits);
+        return found !== null && found.measures.written === found.measures.expected && fitCost(found.measures, limits) + LOOK_ALIKE_MARGIN < cost;
+    });
+}
+
 // Judges the writing (in any units, e.g. canvas pixels) against the model of KanjiVG
 export function judge(writing: readonly Stroke[], model: readonly (readonly number[])[], grade: number, options: JudgeOptions = {}): Verdict {
     const limits = limitsFor(grade, model.length);
@@ -655,6 +691,10 @@ export function judge(writing: readonly Stroke[], model: readonly (readonly numb
     if (m.written !== m.expected) return { ...m, ok: false, reason: 'count', order: null, hint: diagnose(found, limits) };
     const ok = m.shape <= limits.shape && m.strokes <= limits.strokes && m.worst <= limits.worst && m.flips <= limits.flips && m.meets <= limits.meets;
     if (!ok) return { ...m, ok, reason: 'shape', order: null, hint: diagnose(found, limits) };
+    // Within the limits, but another kanji that looks like it: what differs from the one asked
+    if (options.lookAlikes && closerLookAlike(writing, grade, fitCost(m, limits), options.lookAlikes)) {
+        return { ...m, ok: false, reason: 'shape', order: null, hint: strokeHint(found, limits, true, true) };
+    }
     // The right kanji: and in the right order?
     const order = options.strokeOrder ? strokeOrderError(found.written, found.target, found.groups) : null;
     return { ...m, ok: !order, reason: order ? 'order' : 'ok', order, hint: null };

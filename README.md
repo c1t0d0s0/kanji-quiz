@@ -142,6 +142,7 @@ kanji-quiz/
 │   ├── styles.css          # スタイルシート（レスポンシブ、ダークモード、教科書体）
 │   ├── data/               # 漢字データ（1,026字）、熟語データ jukugo.txt（6,100語以上）、
 │   │                       # 手書きの例文 reibun.txt、KanjiVG から作った字形 kanjivg.ts
+│   │                       # と、似た字の一覧 lookalikes.ts
 │   ├── core/               # 画面に関係ない処理（記録・同期・出題・かるた・対戦のルール・ヤマネコ・効果音）
 │   ├── cloud/              # Firebase（ログイン・Firestore 同期・対戦の通信）。必要なときだけ読みこみます
 │   ├── app/                # 画面の状態（クイズの進行・対戦の進行・選択中の学年など）
@@ -182,3 +183,5 @@ npm test
 [MIT License](LICENSE)
 
 ただし `src/data/kanjivg.ts`（手書きの字形と書き順のデータ）は、Ulrich Apel 氏の [KanjiVG](https://kanjivg.tagaini.net) を加工して作ったもので、元と同じ [クリエイティブ・コモンズ 表示 - 継承 3.0（CC BY-SA 3.0）](https://creativecommons.org/licenses/by-sa/3.0/) で配布します。アプリの画面（手書きの画面と「あそびかた」）にもこの表示を出しています。データは `npm run kanjivg` で KanjiVG のリリースから作り直せます。
+
+`src/data/lookalikes.ts`（判定エンジンから見て似ている字の一覧。`judge` の `lookAlikes` に渡すと、天と夫のような字を区別します）も `kanjivg.ts` から作ったもので、同じく CC BY-SA 3.0 です。`kanjivg.ts` や判定の基準を変えたときは `npm run lookalikes` で作り直します。

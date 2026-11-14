@@ -8,7 +8,8 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "kanjivg": "node scripts/kanjivg.mjs"
+    "kanjivg": "node scripts/kanjivg.mjs",
+    "lookalikes": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/lookalikes.mjs"
   },
   "dependencies": {
     "firebase": "^13.1.0",

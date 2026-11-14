@@ -3,6 +3,7 @@ import { kanjiDatabase } from '../src/data/kanji';
 import { strokes as models } from '../src/data/kanjivg';
 import { LIMITS, crossingDepth, fromKanjiVG, judge, minimumPairing, traceStroke, type Hint, type Stroke } from '../src/core/handwriting';
 import { createRng } from '../src/core/battle';
+import { lookAlikes, lookAlikesOf } from '../src/data/lookalikes';
 import { MESS, joinStrokes, scribble } from './helpers/scribble';
 
 const GRADES = [1, 2, 3, 4, 5, 6];
@@ -366,3 +367,84 @@ describe('near misses: which stroke to look at again', () => {
     }, 120000);
 });
 
+
+// judge with { lookAlikes }: the kanji that the limits of the low grades let pass for another
+// (天 and 夫) are told apart by which model the writing fits better
+describe('judging with the look-alikes', () => {
+    const withAlikes = (k: string) => ({ lookAlikes: lookAlikesOf(k).map(o => models[o]) });
+
+    it('the list: kanji of the list only, never the kanji itself, the same stroke count', () => {
+        const all = new Set(kanjiDatabase.map(k => k.kanji));
+        for (const [k, list] of Object.entries(lookAlikes)) {
+            expect(all.has(k), k).toBe(true);
+            for (const o of list) {
+                expect(o === k || !all.has(o), `${k} ${o}`).toBe(false);
+                expect(models[o].length, `${k} ${o}`).toBe(models[k].length);
+            }
+        }
+        // The pairs the limits of 1年生 let pass (see the tests of another kanji above)
+        expect(lookAlikesOf('天')).toContain('夫');
+        expect(lookAlikesOf('田')).toContain('由');
+        expect(lookAlikesOf('土')).toContain('士');
+        expect(lookAlikesOf('待')).toContain('持');
+    });
+
+    it('the model of a look-alike is wrong for every kanji, in every grade, mostly with a hint', () => {
+        let pairs = 0, hinted = 0;
+        for (const k of kanjiDatabase) {
+            const options = withAlikes(k.kanji);
+            for (const o of lookAlikesOf(k.kanji)) {
+                pairs++;
+                const v = judge(fromKanjiVG(models[o]), models[k.kanji], 1, options);
+                expect(v, `${o} for ${k.kanji}`).toMatchObject({ ok: false, reason: 'shape' });
+                if (v.hint) hinted++;
+                expect(judge(fromKanjiVG(models[o]), models[k.kanji], 6, options).ok, `${o} for ${k.kanji} 6`).toBe(false);
+            }
+        }
+        expect(pairs).toBeGreaterThan(1000);
+        expect(hinted / pairs).toBeGreaterThan(0.95);
+    }, 300000);
+
+    it('says what differs: the line that pokes out, the line that is longer', () => {
+        const hint = (w: string, k: string) => judge(fromKanjiVG(models[w]), models[k], 1, withAlikes(k)).hint;
+        expect(hint('夫', '天')).toMatchObject({ kind: 'stop' });
+        expect(hint('天', '夫')).toMatchObject({ kind: 'poke' });
+        expect(hint('士', '土')?.kind).toMatch(/longer|shorter/);
+    });
+
+    it('the model itself and a neat child\'s kanji are still right (all 1,026)', () => {
+        const lost: string[] = [];
+        for (const k of kanjiDatabase) {
+            const options = withAlikes(k.kanji);
+            expect(judge(fromKanjiVG(models[k.kanji]), models[k.kanji], k.grade, options).ok, k.kanji).toBe(true);
+            const w = scribble(models[k.kanji], MESS.small, k.kanji);
+            if (judge(w, models[k.kanji], k.grade).ok && !judge(w, models[k.kanji], k.grade, options).ok) lost.push(k.kanji);
+        }
+        expect(lost.join('')).toBe('');
+    }, 300000);
+
+    it('an untidy child\'s kanji is nearly always still right', () => {
+        let right = 0, lost = 0;
+        for (const k of every3) {
+            const w = scribble(models[k.kanji], MESS.medium, k.kanji);
+            if (!judge(w, models[k.kanji], k.grade).ok) continue;
+            right++;
+            if (!judge(w, models[k.kanji], k.grade, withAlikes(k.kanji)).ok) lost++;
+        }
+        expect(lost / right).toBeLessThan(0.01);
+    }, 300000);
+
+    it('a child writing a look-alike neatly is nearly always wrong', () => {
+        let passed = 0, caught = 0;
+        for (const k of every3) {
+            for (const o of lookAlikesOf(k.kanji)) {
+                const w = scribble(models[o], MESS.small, o + k.kanji);
+                if (!judge(w, models[k.kanji], k.grade).ok) continue;
+                passed++;
+                if (!judge(w, models[k.kanji], k.grade, withAlikes(k.kanji)).ok) caught++;
+            }
+        }
+        expect(passed).toBeGreaterThan(80);
+        expect(caught / passed).toBeGreaterThan(0.95);
+    }, 300000);
+});
