@@ -673,11 +673,22 @@ export function fitCost(m: Measures, limits: Limits) {
 
 // One of the look-alikes (of the same stroke count) fits the writing clearly better than the model
 function closerLookAlike(writing: readonly Stroke[], grade: number, cost: number, lookAlikes: readonly (readonly (readonly number[])[])[]) {
-    return lookAlikes.some(other => {
-        const limits = limitsFor(grade, other.length);
-        const found = measure(writing, other, limits);
-        return found !== null && found.measures.written === found.measures.expected && fitCost(found.measures, limits) + LOOK_ALIKE_MARGIN < cost;
-    });
+    const boxed = normalize(writing);
+    return boxed !== null && lookAlikes.some(other => fitsBetter(boxed, other, limitsFor(grade, other.length), cost));
+}
+
+// The writing (in its box) fits the other model better than cost, by LOOK_ALIKE_MARGIN: fitCost,
+// measured as in measure(). The meetings take the longest to count (most look-alikes are far
+// from the writing), so they are counted only when the rest still leaves the other a chance
+function fitsBetter(boxed: Stroke[], other: readonly (readonly number[])[], limits: Limits, cost: number) {
+    const m0 = normalize(fromKanjiVG(other))!;
+    const w0 = toModelProportions(boxed, m0);
+    const { written, model: target } = absorbJoins(w0, m0, limits.joins, limits.strokes, limits.reversed);
+    if (written.length !== target.length) return false;
+    const { distance, pairs } = strokeDistance(written, target, limits.reversed);
+    const fit = distance / limits.strokes + worstStroke(w0, m0) / limits.worst + flippedLengths(written, target, pairs);
+    if (fit + LOOK_ALIKE_MARGIN >= cost) return false;
+    return fit + mismatchedMeetings(written, target, pairs) + LOOK_ALIKE_MARGIN < cost;
 }
 
 // Judges the writing (in any units, e.g. canvas pixels) against the model of KanjiVG
